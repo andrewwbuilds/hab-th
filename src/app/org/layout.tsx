@@ -14,7 +14,11 @@ export default async function OrganizerLayout({ children }: { children: ReactNod
         <Sidebar workspace={ORG_WORKSPACE} nav={ORG_NAV} user={user} />
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>
-      <CommandPalette commands={ORG_COMMANDS} nav={ORG_NAV} />
+      <CommandPalette
+        commands={ORG_COMMANDS}
+        nav={ORG_NAV}
+        search={{ label: "Search applicants for", href: "/org/applications?q={query}" }}
+      />
     </ToastProvider>
   );
 }

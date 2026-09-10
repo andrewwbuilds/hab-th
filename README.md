@@ -52,7 +52,8 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | anon/publishable key; RLS does the access control |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | used only by the seed script and the organizer invite grant |
 | `ORGANIZER_INVITE_CODE` | server only | entered on sign-up to get an organizer account |
-| `SEED_PASSWORD` | server, rendered into the sign-in page | password for the seeded demo accounts; the sign-in page passes it to the demo buttons, so treat it as public |
+| `SEED_PASSWORD` | server, and the sign-in page when `DEMO_LOGIN=1` | password for the seeded demo accounts; treat it as public |
+| `DEMO_LOGIN` | server | `1` shows one-click demo sign-in buttons on the sign-in page; unset to hide them |
 | `E2E_PORT` | playwright only | port Playwright starts `next dev` on (default 3000) |
 | `E2E_BASE_URL` | playwright only | run the e2e specs against an existing server instead of starting one |
 
@@ -87,9 +88,8 @@ put that URL in the Live section above.
 
 ## Status
 
-- [x] schema with RLS
-- [x] UI kit and shell
-- [x] Roadie engine and components
-- [x] auth, applicant, organizer routes
-- [x] end-to-end tests
-- [ ] cloud Supabase project and Vercel deployment
+Working end to end against a local Supabase stack: sign-up and sign-in for applicants and organizers, the Roadie
+quiz and companion, four track applications with autosave and submit, the organizer table with filters and keyboard
+navigation, grading with a per-track rubric, decisions that show up on the applicant's status page, unit tests, and
+Playwright flows. Not yet done: the cloud Supabase project and the Vercel deployment (run `scripts/deploy.sh` once
+`npx supabase login` has been done; see the Deployment section).

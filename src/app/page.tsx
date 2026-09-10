@@ -101,10 +101,13 @@ export default async function LandingPage() {
             <h2 className="text-sm font-medium text-muted">Four ways to take part</h2>
             <ul className="flex flex-col divide-y divide-border rounded-panel border border-border bg-panel">
               {TRACK_ROWS.map(({ track, icon: Icon, blurb, color }) => (
-                <li key={track} className="flex items-center gap-3 px-3 py-2.5">
-                  <Icon aria-hidden className={`size-4 shrink-0 ${color}`} />
-                  <span className="w-20 shrink-0 font-medium text-fg">{TRACK_LABEL[track]}</span>
-                  <span className="truncate text-muted">{blurb}</span>
+                <li
+                  key={track}
+                  className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-x-3 gap-y-0.5 px-3 py-2.5 sm:grid-cols-[16px_80px_minmax(0,1fr)]"
+                >
+                  <Icon aria-hidden className={`size-4 ${color}`} />
+                  <span className="font-medium text-fg">{TRACK_LABEL[track]}</span>
+                  <span className="col-start-2 text-muted sm:col-start-3 sm:truncate">{blurb}</span>
                 </li>
               ))}
             </ul>
@@ -112,11 +115,11 @@ export default async function LandingPage() {
 
           <div className="flex flex-col gap-3">
             <h2 className="text-sm font-medium text-muted">Every Roadie is different</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {EXAMPLE_ROADIES.map((spec) => (
                 <figure
                   key={spec.species}
-                  className="flex flex-col items-center gap-2 rounded-panel border border-border bg-panel px-3 py-4 text-center"
+                  className="flex min-w-0 flex-col items-center gap-2 rounded-panel border border-border bg-panel px-2 py-4 text-center sm:px-3"
                 >
                   <PetSprite spec={spec} size={72} />
                   <figcaption className="flex flex-col gap-0.5">

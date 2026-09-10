@@ -5,7 +5,8 @@ import { requireRole } from "@/lib/data/profiles";
 import type { MyApplication } from "@/lib/data/types";
 import type { Answers, AnswerValue } from "@/lib/forms/schema";
 import { getFormDefinition, type FieldDef } from "@/lib/forms/tracks";
-import { isTrack, STATUS_LABEL, TRACK_LABEL, type Decision, type Status } from "@/lib/types";
+import { isDecision, isTrack, STATUS_LABEL, TRACK_LABEL, type Decision, type Status } from "@/lib/types";
+import { DecisionXp } from "./DecisionXp";
 import { RoadieScreen } from "../../RoadieScreen";
 import { loadApplicant } from "../../applicant-data";
 import { applicationsByTrack } from "../../applicant-nav";
@@ -37,10 +38,6 @@ const DECISION_COPY: Record<Decision, { title: string; body: string; className: 
     className: "border-status-rejected/40 bg-[rgba(235,87,87,0.10)]",
   },
 };
-
-function isDecision(status: Status): status is Decision {
-  return status === "accepted" || status === "waitlisted" || status === "rejected";
-}
 
 interface TimelineStep {
   key: string;
@@ -158,6 +155,7 @@ export default async function StatusPage({ params }: StatusPageProps) {
   return (
     <div className="mx-auto flex max-w-[1040px] flex-col gap-6 px-6 py-6 pb-28">
       <RoadieScreen context={{ screen: "status", track, status: application.status }} />
+      {decision && <DecisionXp track={track} />}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-lg font-medium text-fg">{definition.title}</h1>

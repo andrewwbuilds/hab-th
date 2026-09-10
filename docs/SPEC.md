@@ -23,6 +23,8 @@ exporting `proxy()`; `next build` uses Turbopack; layouts can use `LayoutProps<"
 
 - `profiles.role`: `applicant` | `organizer`. Set at signup. Organizer role granted when the signup form's
   invite code matches `ORGANIZER_INVITE_CODE` (server-side check, then `admin` client sets the role), or by seed.
+  The `protect_profile_role` trigger blocks role changes from everyone except organizers and the service role.
+- `DEMO_LOGIN=1` shows one-click demo sign-in buttons on the sign-in page (uses `SEED_PASSWORD`).
 - `applications.track`: `hacker` | `judge` | `mentor` | `volunteer`. One application per (user, track).
   Each track has its own form definition and its own grading rubric (see `src/lib/forms/tracks.ts`).
 
@@ -116,7 +118,9 @@ GENRES: `electronic, hiphop, indie, pop, rock, metal, jazz, classical, rnb, coun
   the user can rename before saving (pet name is editable in the quiz's last step).
 - `stage`: derived from xp: 0-49 `egg`, 50-149 `hatchling`, 150+ `grown`. xp events (awarded by server actions,
   idempotent per event key stored in `pets.traits.xpEvents`): pet created 25, first draft 25, each form section
-  completed 20, submit 60, decision received 20. The sprite visibly changes with stage.
+  completed 20, submit 60, decision received 20. The sprite visibly changes with stage. Every xp event is written by
+  the applicant's own session (RLS only lets owners update pets); the decision event lands when the applicant first
+  opens their status page, so no organizer action ever needs the service role.
 
 ### Sprite `PetSprite` (`src/components/pet/PetSprite.tsx`)
 

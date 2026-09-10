@@ -4,16 +4,9 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import {
-  DECISIONS,
-  STATUSES,
-  TRACKS,
-  type ActionResult,
-  type Decision,
-  type Status,
-  type Track,
-} from "@/lib/types";
+import { isDecision, STATUSES, TRACKS, type ActionResult, type Status, type Track } from "@/lib/types";
 import { completion, parseAnswers, validateAnswers, type Answers } from "@/lib/forms/schema";
+import { allFields } from "@/lib/forms/tracks";
 import type {
   Application,
   ApplicationDetail,
@@ -26,7 +19,7 @@ import type {
   ReviewerStat,
 } from "@/lib/data/types";
 import { getCurrentUser, requireRole, requireUser } from "@/lib/data/profiles";
-import { awardXp, awardXpToUser, getPetForUser } from "@/lib/data/pets";
+import { awardXp, getPetForUser } from "@/lib/data/pets";
 import { listReviews } from "@/lib/data/reviews";
 
 const trackSchema = z.enum(TRACKS);
@@ -51,10 +44,6 @@ const STATUS_ORDER: Record<Status, number> = {
   waitlisted: 4,
   rejected: 5,
 };
-
-function isDecision(status: Status): status is Decision {
-  return (DECISIONS as readonly string[]).includes(status);
-}
 
 function toApplication(row: ApplicationRow): Application {
   return { ...row, answers: parseAnswers(row.answers) };
@@ -141,7 +130,9 @@ export async function saveDraft(track: Track, answers: Answers): Promise<ActionR
   if (current.status !== "draft") return { ok: false, error: "This application is locked after submission" };
 
   const supabase = await createClient();
-  const merged: Answers = { ...current.answers, ...parsedAnswers.data };
+  const known = new Set(allFields(parsedTrack.data).map((field) => field.key));
+  const incoming = Object.fromEntries(Object.entries(parsedAnswers.data).filter(([key]) => known.has(key)));
+  const merged: Answers = { ...current.answers, ...incoming };
   const { data, error } = await supabase
     .from("applications")
     .update({ answers: merged })
@@ -302,13 +293,11 @@ export async function setStatus(id: string, status: Status): Promise<ActionResul
     .from("applications")
     .update({ status: parsedStatus.data, decided_at: decided ? new Date().toISOString() : null })
     .eq("id", parsedId.data)
+    .neq("status", "draft")
     .select("*")
-    .single();
-  if (error || !data) return { ok: false, error: "Could not update the status. Try again." };
-
-  if (decided) {
-    await awardXpToUser(data.user_id, "decision", data.track);
-  }
+    .maybeSingle();
+  if (error) return { ok: false, error: "Could not update the status. Try again." };
+  if (!data) return { ok: false, error: "Drafts cannot be reviewed until the applicant submits" };
   revalidateOrganizer(data.id);
   revalidateApplicant(data.track);
   return { ok: true, data: toApplication(data) };

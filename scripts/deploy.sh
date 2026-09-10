@@ -46,6 +46,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON
 SUPABASE_SERVICE_ROLE_KEY=$SERVICE
 ORGANIZER_INVITE_CODE=$INVITE
 SEED_PASSWORD=$SEEDPW
+DEMO_LOGIN=1
 ENV
 node --env-file=.env.cloud --import tsx scripts/seed.ts
 
@@ -56,7 +57,8 @@ for pair in \
   "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" \
   "SUPABASE_SERVICE_ROLE_KEY=$SERVICE" \
   "ORGANIZER_INVITE_CODE=$INVITE" \
-  "SEED_PASSWORD=$SEEDPW"; do
+  "SEED_PASSWORD=$SEEDPW" \
+  "DEMO_LOGIN=1"; do
   key="${pair%%=*}"; val="${pair#*=}"
   vercel env rm "$key" production --yes >/dev/null 2>&1 || true
   printf '%s' "$val" | vercel env add "$key" production >/dev/null

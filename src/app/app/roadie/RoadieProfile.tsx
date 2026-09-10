@@ -187,13 +187,13 @@ export function RoadieProfile({ pet }: { pet: PetSpec }) {
         </div>
         <ul className="flex items-center gap-3">
           {swatches.map((swatch) => (
-            <li key={swatch.label} className="flex items-center gap-1.5" title={`${swatch.label} ${swatch.hex}`}>
+            <li key={swatch.label} title={swatch.label}>
               <span
-                aria-hidden
-                className="size-4 rounded-full border border-border-strong"
+                role="img"
+                aria-label={`${swatch.label} color`}
+                className="block size-5 rounded-full border border-border-strong"
                 style={{ background: swatch.hex }}
               />
-              <span className="font-mono text-xs text-dim">{swatch.hex}</span>
             </li>
           ))}
         </ul>

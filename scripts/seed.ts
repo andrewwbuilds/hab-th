@@ -1,6 +1,6 @@
 import { createClient, type User } from "@supabase/supabase-js";
 import type { Database, Json } from "../src/lib/database.types";
-import type { Decision, MusicProfile, PetSpec, Status, Track } from "../src/lib/types";
+import { isDecision, type MusicProfile, type PetSpec, type Status, type Track } from "../src/lib/types";
 import { applyXp, derivePet } from "../src/lib/pet/engine";
 import { FORM_DEFINITIONS } from "../src/lib/forms/tracks";
 import { completion, validateAnswers, type Answers } from "../src/lib/forms/schema";
@@ -503,10 +503,6 @@ const APPLICANTS: ApplicantSeed[] = [
     ],
   },
 ];
-
-function isDecision(status: Status): status is Decision {
-  return status === "accepted" || status === "waitlisted" || status === "rejected";
-}
 
 function daysAgo(days: number, hour: number): string {
   const date = new Date();

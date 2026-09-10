@@ -113,7 +113,9 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if new.role is distinct from old.role and not public.is_organizer() then
+  if new.role is distinct from old.role
+     and auth.role() is distinct from 'service_role'
+     and not public.is_organizer() then
     raise exception 'role is read-only';
   end if;
   return new;

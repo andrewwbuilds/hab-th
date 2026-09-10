@@ -31,11 +31,20 @@ export function CommandPaletteTrigger() {
 export interface CommandPaletteProps {
   commands?: Command[];
   nav?: NavItem[];
+  /** Free-text search: label shown before the query, href with a {query} placeholder. */
+  search?: { label: string; href: string };
 }
 
-export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps) {
+export function CommandPalette({ commands = [], nav = [], search }: CommandPaletteProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const trimmedQuery = query.trim();
+
+  const close = useCallback((next: boolean) => {
+    setOpen(next);
+    if (!next) setQuery("");
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -55,11 +64,11 @@ export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps)
 
   const run = useCallback(
     (command: Command) => {
-      setOpen(false);
+      close(false);
       if (command.onSelect) command.onSelect();
       if (command.href) router.push(command.href);
     },
-    [router],
+    [close, router],
   );
 
   const groups = useMemo(() => {
@@ -74,7 +83,7 @@ export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps)
   return (
     <Cmdk.Dialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={close}
       label="Command palette"
       loop
       overlayClassName="fixed inset-0 z-50 bg-black/55"
@@ -84,6 +93,8 @@ export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps)
         <Search className="size-4 shrink-0 text-muted" />
         <Cmdk.Input
           autoFocus
+          value={query}
+          onValueChange={setQuery}
           placeholder="Type a command or search"
           className="h-full min-w-0 flex-1 bg-transparent text-md text-fg outline-none placeholder:text-dim focus-visible:outline-0"
         />
@@ -91,6 +102,27 @@ export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps)
       </div>
       <Cmdk.List className="max-h-[360px] overflow-y-auto p-1.5 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-dim">
         <Cmdk.Empty className="px-2 py-8 text-center text-base text-muted">No results</Cmdk.Empty>
+        {search && trimmedQuery && (
+          <Cmdk.Group heading="Search">
+            <Cmdk.Item
+              value={`search ${trimmedQuery}`}
+              onSelect={() =>
+                run({
+                  id: "search",
+                  label: search.label,
+                  href: search.href.replace("{query}", encodeURIComponent(trimmedQuery)),
+                })
+              }
+              className={itemClass}
+            >
+              <Search className="size-4 shrink-0 text-muted" />
+              <span className="flex-1 truncate">
+                {search.label} <span className="text-muted">&quot;{trimmedQuery}&quot;</span>
+              </span>
+              <ArrowRight className="size-3.5 text-dim opacity-0 data-[selected=true]:opacity-100" />
+            </Cmdk.Item>
+          </Cmdk.Group>
+        )}
         {nav.length > 0 && (
           <Cmdk.Group heading="Go to">
             {nav.map((item) => {

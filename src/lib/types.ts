@@ -41,6 +41,10 @@ export function isStatus(value: string): value is Status {
   return (STATUSES as readonly string[]).includes(value);
 }
 
+export function isDecision(status: Status): status is Decision {
+  return (DECISIONS as readonly string[]).includes(status);
+}
+
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: string; fieldErrors?: Record<string, string> };

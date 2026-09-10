@@ -29,7 +29,7 @@ export function ApplicantShell({ nav, commands, user, sidebarFooter, children }:
   const pathname = usePathname();
   return (
     <AppShell
-      workspace={{ name: "Encore", hint: "Applicant" }}
+      workspace={{ name: "Hackathon at Berkeley", hint: "Applicant" }}
       nav={nav}
       user={user}
       commands={commands}

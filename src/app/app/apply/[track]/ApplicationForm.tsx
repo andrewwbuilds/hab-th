@@ -453,7 +453,7 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
                     optional={!checkbox && !field.required}
                     hint={field.hint}
                     error={fieldErrors[field.key]}
-                    className="max-w-2xl"
+                    className="max-w-lg"
                   >
                     <FieldControl
                       field={field}
