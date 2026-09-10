@@ -123,13 +123,23 @@ $$;
 create trigger profiles_protect_role before update on public.profiles
   for each row execute function public.protect_profile_role();
 
--- applicants may only edit drafts, and may only move draft -> submitted
+-- identity columns never change; organizers change status only; applicants may
+-- only edit drafts and may only move draft -> submitted
 create or replace function public.protect_application_transition()
 returns trigger
 language plpgsql
 as $$
 begin
+  if new.id <> old.id
+    or new.user_id <> old.user_id
+    or new.track <> old.track
+    or new.created_at <> old.created_at then
+    raise exception 'application identity is immutable';
+  end if;
   if public.is_organizer() then
+    if new.answers <> old.answers then
+      raise exception 'organizers cannot edit answers';
+    end if;
     return new;
   end if;
   if old.status <> 'draft' then
@@ -186,10 +196,22 @@ create policy "applications: applicant deletes own draft"
   on public.applications for delete
   using (user_id = auth.uid() and status = 'draft');
 
-create policy "reviews: organizer only"
-  on public.reviews for all
-  using (public.is_organizer())
+create policy "reviews: organizer reads"
+  on public.reviews for select
+  using (public.is_organizer());
+
+create policy "reviews: reviewer inserts own"
+  on public.reviews for insert
   with check (public.is_organizer() and reviewer_id = auth.uid());
+
+create policy "reviews: reviewer updates own"
+  on public.reviews for update
+  using (public.is_organizer() and reviewer_id = auth.uid())
+  with check (reviewer_id = auth.uid());
+
+create policy "reviews: reviewer deletes own"
+  on public.reviews for delete
+  using (public.is_organizer() and reviewer_id = auth.uid());
 
 create policy "pets: owner or organizer reads"
   on public.pets for select

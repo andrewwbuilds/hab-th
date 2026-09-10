@@ -9,9 +9,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   return (
     <SignInForm
       next={nextPath}
-      // Seeded demo credentials, shipped to the client on purpose: this portal is a demo
-      // and the seed accounts exist only so reviewers can try both roles in one click.
-      demoPassword={process.env.SEED_PASSWORD ?? ""}
+      demoPassword={process.env.DEMO_LOGIN === "1" ? (process.env.SEED_PASSWORD ?? "") : ""}
     />
   );
 }

@@ -13,7 +13,7 @@ function stageProgress(xp: number): { value: number; max: number; label: string 
   const stage = stageFor(xp);
   const target = nextStageXp(xp);
   if (target === null) {
-    return { value: 1, max: 1, label: `${STAGE_LABEL[stage]}, fully grown` };
+    return { value: 1, max: 1, label: `${STAGE_LABEL[stage]}, ${xp} xp` };
   }
   const floor = STAGE_THRESHOLDS[stage];
   const nextStage = stageFor(target);

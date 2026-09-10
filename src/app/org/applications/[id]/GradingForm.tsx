@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button, Field, Textarea, cn, useToast } from "@/components/ui";
+import { Button, Field, Textarea, Tooltip, cn, useToast } from "@/components/ui";
 import { upsertReview } from "@/lib/data/reviews";
 import type { Criterion } from "@/lib/forms/tracks";
 import { SCORE_MAX, SCORE_MIN } from "@/lib/forms/tracks";
@@ -30,7 +30,7 @@ function ScoreInput({ id, label, value, onChange, disabled }: ScoreInputProps) {
       role="radiogroup"
       aria-label={label}
       id={id}
-      className="inline-flex h-7 items-center gap-1"
+      className="inline-flex shrink-0 overflow-hidden rounded-control border border-border-strong bg-panel"
       onKeyDown={(event) => {
         if (disabled) return;
         const current = value ?? SCORE_MIN - 1;
@@ -45,7 +45,6 @@ function ScoreInput({ id, label, value, onChange, disabled }: ScoreInputProps) {
     >
       {SCORE_VALUES.map((score) => {
         const checked = value === score;
-        const filled = value !== undefined && score <= value;
         return (
           <button
             key={score}
@@ -56,18 +55,41 @@ function ScoreInput({ id, label, value, onChange, disabled }: ScoreInputProps) {
             disabled={disabled}
             tabIndex={checked || (value === undefined && score === SCORE_MIN) ? 0 : -1}
             onClick={() => onChange(score)}
-            className="group flex size-5 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              "size-5 text-xs tabular-nums transition-colors duration-120 ease-out-quick focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50",
+              score !== SCORE_MIN && "border-l border-border-strong",
+              checked ? "bg-accent text-white" : "text-muted hover:bg-hover hover:text-fg",
+            )}
           >
-            <span
-              className={cn(
-                "size-2.5 rounded-full transition-colors duration-120 ease-out-quick",
-                filled ? "bg-accent group-hover:bg-accent-hover" : "bg-border-strong group-hover:bg-[#3a3b40]",
-              )}
-            />
+            {score}
           </button>
         );
       })}
-      <span className="ml-1 w-3 text-right text-sm tabular-nums text-muted">{value ?? ""}</span>
+    </div>
+  );
+}
+
+interface ScoreRowProps extends ScoreInputProps {
+  description: string;
+  error?: string;
+}
+
+function ScoreRow({ id, label, description, error, ...input }: ScoreRowProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Tooltip content={description} className="w-full">
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <label htmlFor={id} className="truncate text-sm font-medium text-fg">
+            {label}
+          </label>
+          <ScoreInput id={id} label={label} {...input} />
+        </div>
+      </Tooltip>
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -110,17 +132,14 @@ export function GradingForm({ applicationId, rubric, initial, savedLabel, disabl
         submit();
       }}
     >
-      {rubric.map((criterion) => (
-        <Field
-          key={criterion.key}
-          label={criterion.label}
-          hint={criterion.description}
-          error={errors[`scores.${criterion.key}`]}
-          htmlFor={`score-${criterion.key}`}
-        >
-          <ScoreInput
+      <div className="flex flex-col gap-2">
+        {rubric.map((criterion) => (
+          <ScoreRow
+            key={criterion.key}
             id={`score-${criterion.key}`}
             label={criterion.label}
+            description={criterion.description}
+            error={errors[`scores.${criterion.key}`]}
             value={scores[criterion.key]}
             disabled={pending}
             onChange={(value) => {
@@ -128,12 +147,12 @@ export function GradingForm({ applicationId, rubric, initial, savedLabel, disabl
               setDirty(true);
             }}
           />
-        </Field>
-      ))}
-      <Field label="Overall" hint="Your gut call, independent of the criteria." error={errors.overall} htmlFor="score-overall">
-        <ScoreInput
+        ))}
+        <ScoreRow
           id="score-overall"
           label="Overall"
+          description="Your gut call, independent of the criteria."
+          error={errors.overall}
           value={overall}
           disabled={pending}
           onChange={(value) => {
@@ -141,7 +160,8 @@ export function GradingForm({ applicationId, rubric, initial, savedLabel, disabl
             setDirty(true);
           }}
         />
-      </Field>
+      </div>
+      <p className="text-xs text-dim">1 is weak, 5 is strong. Hover a criterion for what it measures.</p>
       <Field label="Notes" optional error={errors.notes} htmlFor="review-notes">
         <Textarea
           id="review-notes"

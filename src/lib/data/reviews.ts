@@ -8,7 +8,7 @@ import type { Json } from "@/lib/database.types";
 import type { ActionResult, Track } from "@/lib/types";
 import { FORM_DEFINITIONS, SCORE_MAX, SCORE_MIN } from "@/lib/forms/tracks";
 import type { ApplicantSummary, Review, ReviewInput, ReviewRow } from "@/lib/data/types";
-import { requireRole } from "@/lib/data/profiles";
+import { getCurrentUser, requireRole } from "@/lib/data/profiles";
 
 const REVIEWER_SELECT = "*, reviewer:profiles!inner(id, full_name, email)";
 
@@ -59,25 +59,12 @@ export async function listReviews(applicationId: string): Promise<Review[]> {
   return (data ?? []).map(toReview);
 }
 
-export async function getMyReview(applicationId: string): Promise<Review | null> {
-  const parsedId = idSchema.safeParse(applicationId);
-  if (!parsedId.success) return null;
-  const organizer = await requireRole("organizer");
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("reviews")
-    .select(REVIEWER_SELECT)
-    .eq("application_id", parsedId.data)
-    .eq("reviewer_id", organizer.id)
-    .maybeSingle();
-  return data ? toReview(data) : null;
-}
-
 export async function upsertReview(applicationId: string, input: ReviewInput): Promise<ActionResult<Review>> {
   const parsedId = idSchema.safeParse(applicationId);
   if (!parsedId.success) return { ok: false, error: "Unknown application" };
 
-  const organizer = await requireRole("organizer");
+  const organizer = await getCurrentUser();
+  if (organizer?.role !== "organizer") return { ok: false, error: "Not allowed" };
   const supabase = await createClient();
   const { data: application } = await supabase
     .from("applications")

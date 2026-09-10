@@ -85,7 +85,7 @@ export function CommandPalette({ commands = [], nav = [] }: CommandPaletteProps)
         <Cmdk.Input
           autoFocus
           placeholder="Type a command or search"
-          className="h-full min-w-0 flex-1 bg-transparent text-md text-fg outline-none placeholder:text-dim focus-visible:outline-none"
+          className="h-full min-w-0 flex-1 bg-transparent text-md text-fg outline-none placeholder:text-dim focus-visible:outline-0"
         />
         <Kbd>Esc</Kbd>
       </div>

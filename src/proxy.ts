@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import type { Database } from "@/lib/database.types";
 
 const APPLICANT_PREFIX = "/app";
 const ORGANIZER_PREFIX = "/org";
@@ -7,7 +8,7 @@ const ORGANIZER_PREFIX = "/org";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -30,6 +31,13 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Session cookies refreshed by getUser() live on `response`; a redirect must carry them too.
+  function redirectTo(url: URL) {
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
+  }
+
   const { pathname, search } = request.nextUrl;
   const wantsApplicant = pathname === APPLICANT_PREFIX || pathname.startsWith(`${APPLICANT_PREFIX}/`);
   const wantsOrganizer = pathname === ORGANIZER_PREFIX || pathname.startsWith(`${ORGANIZER_PREFIX}/`);
@@ -40,7 +48,7 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/sign-in";
     url.search = "";
     url.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   if (user && (wantsApplicant || wantsOrganizer || isAuthPage)) {
@@ -55,7 +63,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = home;
       url.search = "";
-      return NextResponse.redirect(url);
+      return redirectTo(url);
     }
   }
 

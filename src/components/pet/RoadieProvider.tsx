@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import type { PetMood, PetSpec, RoadieContext } from "@/lib/types";
-import { getRoadieLine, lineVariantCount, moodForContext } from "@/lib/pet/voice";
+import type { PetMood, PetSpec } from "@/lib/types";
+import { getRoadieLine, lineVariantCount, moodForContext, type RoadieLineContext } from "@/lib/pet/voice";
 
 export interface RoadieState {
   spec: PetSpec | null;
-  context: RoadieContext;
-  setContext: (ctx: RoadieContext) => void;
+  context: RoadieLineContext;
+  setContext: (ctx: RoadieLineContext) => void;
   mood: PetMood;
   setMood: (mood: PetMood) => void;
   line: string;
@@ -17,11 +17,11 @@ export interface RoadieState {
 
 export interface RoadieProviderProps {
   spec: PetSpec | null;
-  initialContext?: RoadieContext;
+  initialContext?: RoadieLineContext;
   children: ReactNode;
 }
 
-const DEFAULT_CONTEXT: RoadieContext = { screen: "home" };
+const DEFAULT_CONTEXT: RoadieLineContext = { screen: "home" };
 
 function noop() {}
 
@@ -38,7 +38,7 @@ const FALLBACK: RoadieState = {
 
 const RoadieCtx = createContext<RoadieState>(FALLBACK);
 
-function sameContext(a: RoadieContext, b: RoadieContext): boolean {
+function sameContext(a: RoadieLineContext, b: RoadieLineContext): boolean {
   return (
     a.screen === b.screen &&
     a.track === b.track &&
@@ -52,7 +52,7 @@ function sameContext(a: RoadieContext, b: RoadieContext): boolean {
 }
 
 interface InnerState {
-  context: RoadieContext;
+  context: RoadieLineContext;
   variant: number;
   override: PetMood | null;
 }
@@ -60,7 +60,7 @@ interface InnerState {
 export function RoadieProvider({ spec, initialContext = DEFAULT_CONTEXT, children }: RoadieProviderProps) {
   const [state, setState] = useState<InnerState>({ context: initialContext, variant: 0, override: null });
 
-  const setContext = useCallback((ctx: RoadieContext) => {
+  const setContext = useCallback((ctx: RoadieLineContext) => {
     setState((prev) => (sameContext(prev.context, ctx) ? prev : { context: ctx, variant: 0, override: null }));
   }, []);
 

@@ -10,7 +10,7 @@ import {
   XP_EVENTS,
 } from "@/lib/pet/engine";
 import { suggestName } from "@/lib/pet/names";
-import { getRoadieLine, lineVariantCount, MAX_LINE_LENGTH } from "@/lib/pet/voice";
+import { getRoadieLine, lineVariantCount, MAX_LINE_LENGTH, moodForContext, type RoadieLineContext } from "@/lib/pet/voice";
 import {
   DISCOVERY,
   ERAS,
@@ -214,8 +214,10 @@ describe("suggestName", () => {
 });
 
 describe("getRoadieLine", () => {
-  const contexts: RoadieContext[] = [
+  const contexts: RoadieLineContext[] = [
     { screen: "home" },
+    { screen: "roadie" },
+    { screen: "form", track: "hacker" },
     { screen: "home", status: "draft" },
     { screen: "home", status: "submitted" },
     { screen: "home", status: "accepted" },
@@ -275,6 +277,37 @@ describe("getRoadieLine", () => {
       const spec = derivePet(profileWithTone(tone));
       const line = getRoadieLine(spec, { screen: "form", section: "About you", fieldKey: "bio", fieldHint: hint });
       expect(line).toContain(hint);
+    }
+  });
+
+  it("never says 'this section' before a section is open", () => {
+    for (const spec of specs) {
+      const ctx: RoadieLineContext = { screen: "form", track: "hacker" };
+      for (let variant = 0; variant < lineVariantCount(spec, ctx); variant += 1) {
+        expect(getRoadieLine(spec, ctx, variant)).not.toContain("this section");
+      }
+    }
+  });
+
+  it("leads into an error with a full stop so a labelled error does not double the colon", () => {
+    const error = "Skills: Pick at least one.";
+    for (const spec of specs) {
+      const ctx: RoadieLineContext = { screen: "form", section: "Skills", errors: [error] };
+      for (let variant = 0; variant < lineVariantCount(spec, ctx); variant += 1) {
+        const line = getRoadieLine(spec, ctx, variant);
+        expect(line).toContain(error);
+        expect(line).not.toMatch(/: [^:]*:/);
+      }
+    }
+  });
+
+  it("talks about the pet on the roadie page and looks happy doing it", () => {
+    expect(moodForContext({ screen: "roadie" })).toBe("happy");
+    for (const tone of TONES) {
+      const spec = derivePet(profileWithTone(tone));
+      const line = getRoadieLine(spec, { screen: "roadie" });
+      expect(line).not.toBe(getRoadieLine(spec, { screen: "home", status: "submitted" }));
+      expect(line).toMatch(/me|I /i);
     }
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Input, Select } from "@/components/ui";
+import { Input, Kbd, Select } from "@/components/ui";
 import { STATUSES, STATUS_LABEL, TRACKS, TRACK_LABEL } from "@/lib/types";
 import { listHref, SORT_LABEL, type ListQuery } from "./_lib/query";
 
@@ -43,17 +43,26 @@ export function FiltersBar({ query, count }: FiltersBarProps) {
       <span className="whitespace-nowrap text-sm tabular-nums text-muted">
         {count} {count === 1 ? "application" : "applications"}
       </span>
-      <Input
-        id={SEARCH_INPUT_ID}
-        name="q"
-        type="search"
-        defaultValue={query.q ?? ""}
-        placeholder="Search applicants"
-        aria-label="Search applications"
-        autoComplete="off"
-        className="w-56"
-        key={query.q ?? ""}
-      />
+      <div className="relative">
+        <Input
+          id={SEARCH_INPUT_ID}
+          name="q"
+          type="search"
+          defaultValue={query.q ?? ""}
+          placeholder="Search"
+          aria-label="Search applications"
+          aria-keyshortcuts="/"
+          autoComplete="off"
+          className="peer w-[180px] pr-8"
+          key={query.q ?? ""}
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1 right-1 peer-focus:hidden peer-not-placeholder-shown:hidden"
+        >
+          <Kbd>/</Kbd>
+        </span>
+      </div>
       <Select
         aria-label="Track"
         value={query.track ?? ""}

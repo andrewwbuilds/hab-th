@@ -349,14 +349,17 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
     });
   };
 
+  /** Deferred so the modal dialog has closed and returned focus before the field takes it. */
   const scrollToField = (key: string) => {
-    const element = document.getElementById(fieldId(key));
-    if (!element) return;
-    element.scrollIntoView({ block: "center", behavior: "smooth" });
-    const focusable = element.matches("input, textarea, select")
-      ? element
-      : element.querySelector<HTMLElement>("input, textarea, select, button");
-    focusable?.focus({ preventScroll: true });
+    setTimeout(() => {
+      const element = document.getElementById(fieldId(key));
+      if (!element) return;
+      element.scrollIntoView({ block: "center", behavior: "smooth" });
+      const focusable = element.matches("input, textarea, select")
+        ? element
+        : element.querySelector<HTMLElement>("input, textarea, select, button");
+      focusable?.focus({ preventScroll: true });
+    }, 0);
   };
 
   const submit = () => {
@@ -389,6 +392,14 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
   };
 
   const missingCount = completion.requiredMissing.length;
+
+  const showMissing = () => {
+    setConfirmOpen(false);
+    const first = orderedFields.find(({ field }) => completion.requiredMissing.includes(field.key));
+    if (!first) return;
+    focusField(first.section, first.field);
+    scrollToField(first.field.key);
+  };
 
   return (
     <div className="mx-auto flex max-w-[1040px] gap-8 px-6 py-6">
@@ -491,16 +502,21 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
             <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={submitting}>
               Keep editing
             </Button>
-            <Button variant="primary" onClick={submit} loading={submitting}>
-              Submit application
-            </Button>
+            {missingCount > 0 ? (
+              <Button variant="primary" onClick={showMissing}>
+                Show what is missing
+              </Button>
+            ) : (
+              <Button variant="primary" onClick={submit} loading={submitting}>
+                Submit application
+              </Button>
+            )}
           </>
         }
       >
         {missingCount > 0 && (
           <p className="text-base text-muted">
-            {missingCount} required {missingCount === 1 ? "answer is" : "answers are"} still missing. Submitting
-            now will point you to the first one.
+            {missingCount} required {missingCount === 1 ? "answer is" : "answers are"} still missing.
           </p>
         )}
       </Dialog>

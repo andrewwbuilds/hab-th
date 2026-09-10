@@ -18,7 +18,8 @@ type Slot =
   | "underReview"
   | "accepted"
   | "waitlisted"
-  | "rejected";
+  | "rejected"
+  | "roadie";
 
 /**
  * Line grammar: text before "|" is the core, text after is an optional tail.
@@ -26,6 +27,12 @@ type Slot =
  * Placeholders: {artist} {era} {section} {error} {hint}.
  */
 type Bank = Record<Slot, readonly string[]>;
+
+/**
+ * Everything the app knows about the screen, plus the Roadie profile page,
+ * which has no application to talk about and talks about the pet instead.
+ */
+export type RoadieLineContext = Omit<RoadieContext, "screen"> & { screen: RoadieContext["screen"] | "roadie" };
 
 const ERA_FLAVOR: Record<Era, string> = {
   "70s": "vinyl",
@@ -56,6 +63,7 @@ const BANKS: Record<Tone, Bank> = {
       "New section: {section}. | Big energy, short answers.",
       "{section}. | Hit it like the first chorus.",
       "Let's rip through {section}. | You know this stuff.",
+      "Fresh page. | Big energy, short answers.",
     ],
     field: [
       "{hint} | Say it loud.",
@@ -63,8 +71,8 @@ const BANKS: Record<Tone, Bank> = {
       "{hint} | Don't overthink it.",
     ],
     errors: [
-      "Hold up: {error} | Fix that and keep the tempo.",
-      "One snag: {error}",
+      "Hold up. {error} | Fix that and keep the tempo.",
+      "One snag. {error}",
       "Almost. {error} | Then we're back on beat.",
     ],
     m25: [
@@ -104,6 +112,11 @@ const BANKS: Record<Tone, Bank> = {
       "Not this time. | Every great act got told no once.",
       "Rejected. | It stings. Next one is louder.",
     ],
+    roadie: [
+      "Yeah, that's me. | Rename me if you dare.",
+      "Looking good, right? | Every section you finish makes me louder.",
+      "Front row seat to your own Roadie. | Go fill something in and watch me grow.",
+    ],
   },
   chill: {
     homeEmpty: [
@@ -124,6 +137,7 @@ const BANKS: Record<Tone, Bank> = {
       "Next up: {section}. | Take it slow.",
       "{section}. | Easy does it.",
       "Starting {section}. | One answer at a time.",
+      "Fresh form. | One answer at a time.",
     ],
     field: [
       "{hint} | No rush.",
@@ -131,9 +145,9 @@ const BANKS: Record<Tone, Bank> = {
       "{hint} | Whatever comes to mind first is usually right.",
     ],
     errors: [
-      "Small thing: {error} | Easy fix.",
+      "Small thing. {error} | Easy fix.",
       "Hey, {error} | No stress.",
-      "Just this: {error}",
+      "Just this. {error}",
     ],
     m25: [
       "A quarter done. | Nice and steady.",
@@ -172,6 +186,11 @@ const BANKS: Record<Tone, Bank> = {
       "Not this time. | It happens. You're still good.",
       "Rejected. | Take a walk, then think about the next one.",
     ],
+    roadie: [
+      "Hey, that's me. | Rename me if you want. I'm easy.",
+      "Just hanging out here. | Finish a section sometime and I'll grow a bit.",
+      "This is the whole me. | Not bad for a few questions.",
+    ],
   },
   moody: {
     homeEmpty: [
@@ -192,6 +211,7 @@ const BANKS: Record<Tone, Bank> = {
       "{section}. | Say the true thing, not the polished thing.",
       "Now {section}. | Nobody reads this for the small talk.",
       "Starting {section}. | Keep it honest.",
+      "Blank form. | Say the true thing, not the polished thing.",
     ],
     field: [
       "{hint} | Don't perform it.",
@@ -199,9 +219,9 @@ const BANKS: Record<Tone, Bank> = {
       "{hint} | Say what's actually true.",
     ],
     errors: [
-      "Something's off: {error}",
+      "Something's off. {error}",
       "It won't go through. {error}",
-      "There it is: {error} | Fix it and carry on.",
+      "There it is. {error} | Fix it and carry on.",
     ],
     m25: [
       "A quarter through. | The verse is written.",
@@ -240,6 +260,11 @@ const BANKS: Record<Tone, Bank> = {
       "Rejected. | It's allowed to hurt. It's not allowed to be the end.",
       "Not this time. | Write it down and come back louder.",
     ],
+    roadie: [
+      "So this is what I look like. | Rename me if the name is wrong.",
+      "You made me out of {artist} and a few clicks. | Not complaining.",
+      "I grow when you write. | No pressure. Some pressure.",
+    ],
   },
   warm: {
     homeEmpty: [
@@ -260,6 +285,7 @@ const BANKS: Record<Tone, Bank> = {
       "Next: {section}. | You've got this.",
       "Now {section}. | Short and honest works best.",
       "On to {section}. | I'll keep you company.",
+      "Fresh form. | I'll keep you company the whole way.",
     ],
     field: [
       "{hint} | Take your time.",
@@ -268,8 +294,8 @@ const BANKS: Record<Tone, Bank> = {
     ],
     errors: [
       "Almost there. {error}",
-      "One thing to fix: {error}",
-      "Small fix: {error} | Then we're good.",
+      "One thing to fix. {error}",
+      "Small fix. {error} | Then we're good.",
     ],
     m25: [
       "A quarter done. | Nice, steady start.",
@@ -308,6 +334,11 @@ const BANKS: Record<Tone, Bank> = {
       "Not this time. | I'm sorry. It doesn't change what you made.",
       "Rejected. | That's hard. You're still good at this.",
     ],
+    roadie: [
+      "That's me. | Rename me if something else fits better.",
+      "You built me out of your music. | I'll grow every time you finish a section.",
+      "Nice to be looked at. | Ready when you are.",
+    ],
   },
 };
 
@@ -335,7 +366,8 @@ function milestoneSlot(completion: number): Slot | null {
   return null;
 }
 
-function resolveSlot(ctx: RoadieContext): Slot {
+function resolveSlot(ctx: RoadieLineContext): Slot {
+  if (ctx.screen === "roadie") return "roadie";
   if (ctx.screen === "home") {
     if (!ctx.status) return "homeEmpty";
     if (ctx.status === "draft") return "homeDrafts";
@@ -354,7 +386,7 @@ function resolveSlot(ctx: RoadieContext): Slot {
   return "sectionStart";
 }
 
-function contextKey(ctx: RoadieContext): string {
+function contextKey(ctx: RoadieLineContext): string {
   return [ctx.screen, ctx.track ?? "", ctx.section ?? "", ctx.fieldKey ?? "", ctx.status ?? ""].join("|");
 }
 
@@ -364,7 +396,7 @@ function sentenceEnd(text: string): string {
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
-function fill(template: string, spec: PetSpec, ctx: RoadieContext): string {
+function fill(template: string, spec: PetSpec, ctx: RoadieLineContext): string {
   const artist = spec.music.topArtist.trim() || "your top artist";
   const section = ctx.section ?? "this section";
   const error = ctx.errors?.[0] ? sentenceEnd(ctx.errors[0]) : "something needs a look.";
@@ -375,6 +407,14 @@ function fill(template: string, spec: PetSpec, ctx: RoadieContext): string {
     .replaceAll("{section}", section)
     .replaceAll("{error}", error)
     .replaceAll("{hint}", hint);
+}
+
+/** Lines that name the section are skipped until the form knows which section is open. */
+function candidates(spec: PetSpec, ctx: RoadieLineContext): readonly string[] {
+  const bank = BANKS[spec.traits.tone][resolveSlot(ctx)];
+  if (ctx.section !== undefined) return bank;
+  const withoutSection = bank.filter((template) => !template.includes("{section}"));
+  return withoutSection.length > 0 ? withoutSection : bank;
 }
 
 function assemble(template: string, chattiness: Chattiness, tag: string): string {
@@ -397,10 +437,9 @@ function clip(line: string): string {
  * Picks a line for the pet's tone and the current screen. Same spec and
  * context always give the same line; bump `variant` to cycle alternates.
  */
-export function getRoadieLine(spec: PetSpec, ctx: RoadieContext, variant = 0): string {
+export function getRoadieLine(spec: PetSpec, ctx: RoadieLineContext, variant = 0): string {
   const tone = spec.traits.tone;
-  const slot = resolveSlot(ctx);
-  const bank = BANKS[tone][slot];
+  const bank = candidates(spec, ctx);
   const seed = hashString(contextKey(ctx));
   const template = bank[(seed + variant) % bank.length];
   const tag = TAGS[tone][(seed >>> 4) % TAGS[tone].length];
@@ -408,12 +447,13 @@ export function getRoadieLine(spec: PetSpec, ctx: RoadieContext, variant = 0): s
 }
 
 /** Number of alternate lines available for a context, for cycling in the dock. */
-export function lineVariantCount(spec: PetSpec, ctx: RoadieContext): number {
-  return BANKS[spec.traits.tone][resolveSlot(ctx)].length;
+export function lineVariantCount(spec: PetSpec, ctx: RoadieLineContext): number {
+  return candidates(spec, ctx).length;
 }
 
 /** The mood a context implies, before any explicit override. */
-export function moodForContext(ctx: RoadieContext): PetMood {
+export function moodForContext(ctx: RoadieLineContext): PetMood {
+  if (ctx.screen === "roadie") return "happy";
   if (ctx.errors && ctx.errors.length > 0) return "worried";
   if (ctx.status === "accepted") return "celebrate";
   if (ctx.status === "rejected") return "worried";

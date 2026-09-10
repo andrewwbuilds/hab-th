@@ -17,15 +17,7 @@ export const getCurrentUser = cache(async (): Promise<Profile | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  if (data) return data;
-  const metaName = user.user_metadata?.full_name;
-  return {
-    id: user.id,
-    email: user.email ?? "",
-    full_name: typeof metaName === "string" ? metaName : "",
-    role: "applicant",
-    created_at: user.created_at,
-  };
+  return data ?? null;
 });
 
 export async function requireUser(): Promise<Profile> {

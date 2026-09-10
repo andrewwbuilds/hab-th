@@ -3,13 +3,12 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { RoadieCard } from "@/components/pet";
 import { Button, Card, StatusIcon, cn } from "@/components/ui";
-import { listMyApplications } from "@/lib/data/applications";
-import { getMyPet } from "@/lib/data/pets";
 import { requireRole } from "@/lib/data/profiles";
 import type { MyApplication } from "@/lib/data/types";
 import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
 import { STATUS_LABEL, TRACKS, TRACK_LABEL, type Track } from "@/lib/types";
 import { RoadieScreen } from "./RoadieScreen";
+import { loadApplicant } from "./applicant-data";
 import {
   applicationsByTrack,
   headlineStatus,
@@ -51,14 +50,12 @@ function TrackRow({
         <span className="flex items-baseline gap-2">
           <span className="text-base font-medium text-fg">{TRACK_LABEL[track]}</span>
           <span className="text-sm text-dim">{progress}</span>
+          {application && (
+            <span className="text-sm tabular-nums text-dim">Updated {formatRelative(application.updated_at)}</span>
+          )}
         </span>
-        <span className="truncate text-sm text-muted">{definition.blurb}</span>
+        <span className="line-clamp-2 text-sm text-muted">{definition.blurb}</span>
       </div>
-      {application && (
-        <span className="hidden shrink-0 text-sm tabular-nums text-dim sm:block">
-          Updated {formatRelative(application.updated_at)}
-        </span>
-      )}
       <Button
         href={href}
         disabled={disabled}
@@ -84,7 +81,7 @@ function TrackList({ applications, disabled }: { applications: MyApplication[]; 
 
 export default async function ApplicantHomePage() {
   const user = await requireRole("applicant");
-  const [pet, applications] = await Promise.all([getMyPet(), listMyApplications()]);
+  const [pet, applications] = await loadApplicant();
   const firstName = user.full_name.trim().split(/\s+/)[0] || "there";
 
   return (

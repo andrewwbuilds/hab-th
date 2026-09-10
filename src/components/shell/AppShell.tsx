@@ -29,7 +29,7 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <ToastProvider>
-      <div className="flex h-dvh w-full overflow-hidden bg-bg text-fg">
+      <div className="flex h-dvh w-full flex-col overflow-hidden bg-bg text-fg md:flex-row">
         <Sidebar workspace={workspace} nav={nav} user={user} footer={sidebarFooter} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar breadcrumbs={breadcrumbs} actions={actions} />

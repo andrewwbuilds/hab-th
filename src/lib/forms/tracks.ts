@@ -561,7 +561,3 @@ export function getFormDefinition(track: Track): FormDefinition {
 export function allFields(track: Track): FieldDef[] {
   return FORM_DEFINITIONS[track].sections.flatMap((section) => section.fields);
 }
-
-export function findField(track: Track, key: string): FieldDef | undefined {
-  return allFields(track).find((field) => field.key === key);
-}

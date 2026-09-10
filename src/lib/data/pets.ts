@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { applyXp, derivePet, XP_EVENTS, type XpEventKey } from "@/lib/pet/engine";
 import type { ActionResult, MusicProfile, PetSpec } from "@/lib/types";
 import { musicProfileSchema, petFromRow, petToRow } from "@/lib/data/pet-row";
-import { getCurrentUser, requireRole, requireUser } from "@/lib/data/profiles";
+import { getCurrentUser } from "@/lib/data/profiles";
 
 const nameSchema = z.string().trim().min(1, "Give your Roadie a name").max(40, "Keep the name under 40 characters");
 const xpEventSchema = z.custom<XpEventKey>(
@@ -43,7 +43,8 @@ export async function createPet(profile: MusicProfile, name: string): Promise<Ac
     return { ok: false, error: parsedName.error.issues[0]?.message ?? "Give your Roadie a name" };
   }
 
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to continue" };
   const supabase = await createClient();
   const { data: existing } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
 
@@ -72,7 +73,8 @@ export async function awardXp(eventKey: XpEventKey, qualifier?: string): Promise
   if (!parsedEvent.success || !parsedQualifier.success) {
     return { ok: false, error: "Unknown xp event" };
   }
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to continue" };
   const supabase = await createClient();
   const { data: row } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
   if (!row) return { ok: true, data: null };
@@ -107,7 +109,8 @@ export async function awardXpToUser(
   if (!parsedId.success || !parsedEvent.success || !parsedQualifier.success) {
     return { ok: false, error: "Invalid xp grant" };
   }
-  await requireRole("organizer");
+  const organizer = await getCurrentUser();
+  if (organizer?.role !== "organizer") return { ok: false, error: "Not allowed" };
   const admin = createAdminClient();
   const { data: row } = await admin.from("pets").select("*").eq("user_id", parsedId.data).maybeSingle();
   if (!row) return { ok: true, data: null };
@@ -129,7 +132,8 @@ export async function renamePet(name: string): Promise<ActionResult<PetSpec>> {
   if (!parsedName.success) {
     return { ok: false, error: parsedName.error.issues[0]?.message ?? "Give your Roadie a name" };
   }
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to continue" };
   const supabase = await createClient();
   const { data: row, error } = await supabase
     .from("pets")

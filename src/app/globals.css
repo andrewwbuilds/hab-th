@@ -77,10 +77,14 @@ body {
   background: rgba(94, 106, 210, 0.35);
 }
 
-*:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-  border-radius: var(--radius-control);
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="option"]:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 0;
 }
 
 dialog:not([open]) {

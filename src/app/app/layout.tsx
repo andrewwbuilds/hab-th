@@ -3,12 +3,11 @@ import Link from "next/link";
 import { PetSprite, RoadieDock, RoadieProvider } from "@/components/pet";
 import type { Command, NavItem } from "@/components/shell";
 import { requireRole } from "@/lib/data/profiles";
-import { listMyApplications } from "@/lib/data/applications";
-import { getMyPet } from "@/lib/data/pets";
 import type { MyApplication } from "@/lib/data/types";
 import { STAGE_LABEL, stageFor } from "@/lib/pet/engine";
 import { STATUS_LABEL, TRACKS, TRACK_LABEL, type PetSpec } from "@/lib/types";
 import { ApplicantShell } from "./ApplicantShell";
+import { loadApplicant } from "./applicant-data";
 import { applicationsByTrack, TRACK_ACTION_LABEL, trackAction, trackHref, trackNavItems } from "./applicant-nav";
 
 function RoadieMini({ pet }: { pet: PetSpec | null }) {
@@ -65,7 +64,7 @@ function commandsFor(pet: PetSpec | null, applications: MyApplication[]): Comman
 
 export default async function ApplicantLayout({ children }: { children: ReactNode }) {
   const user = await requireRole("applicant");
-  const [pet, applications] = await Promise.all([getMyPet(), listMyApplications()]);
+  const [pet, applications] = await loadApplicant();
 
   const nav: NavItem[] = [
     { href: "/app", label: "Home", icon: "home", exact: true },

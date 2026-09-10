@@ -1,5 +1,6 @@
 "use server";
 
+import { timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -68,17 +69,10 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
   redirect(await destinationFor(data.user.id, "applicant", safeNextPath(text(formData, "next"))));
 }
 
-async function grantOrganizer(userId: string, email: string, fullName: string): Promise<void> {
-  const admin = createAdminClient();
-  const { data: existing } = await admin.from("profiles").select("role").eq("id", userId).maybeSingle();
-  if (existing?.role === "organizer") return;
-  // profiles_protect_role rejects role updates unless auth.uid() is an organizer, which the
-  // service role is not, so the row is replaced instead of updated. Only inserts skip the trigger.
-  await admin.from("profiles").delete().eq("id", userId);
-  const { error } = await admin
-    .from("profiles")
-    .insert({ id: userId, email, full_name: fullName, role: "organizer" });
-  if (error) throw new Error(`Could not grant organizer role: ${error.message}`);
+function inviteCodeMatches(inviteCode: string, configuredCode: string | undefined): boolean {
+  const a = Buffer.from(inviteCode);
+  const b = Buffer.from(configuredCode ?? "");
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export async function signUp(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -91,9 +85,8 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error), values };
 
   const { fullName, email, password, inviteCode } = parsed.data;
-  const configuredCode = process.env.ORGANIZER_INVITE_CODE;
   const wantsOrganizer = inviteCode.length > 0;
-  if (wantsOrganizer && (!configuredCode || inviteCode !== configuredCode)) {
+  if (wantsOrganizer && !inviteCodeMatches(inviteCode, process.env.ORGANIZER_INVITE_CODE)) {
     return { fieldErrors: { inviteCode: "That invite code is not valid" }, values };
   }
 
@@ -118,7 +111,14 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
 
   let role: Role = "applicant";
   if (wantsOrganizer) {
-    await grantOrganizer(data.user.id, email, fullName);
+    const { error: grantError } = await createAdminClient()
+      .from("profiles")
+      .update({ role: "organizer" })
+      .eq("id", data.user.id);
+    if (grantError) {
+      await supabase.auth.signOut();
+      return { error: "Could not grant organizer access. Try again.", values };
+    }
     role = "organizer";
   }
 

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Card, StatusIcon, StatusPill, cn } from "@/components/ui";
-import { getMyApplication } from "@/lib/data/applications";
 import { requireRole } from "@/lib/data/profiles";
 import type { MyApplication } from "@/lib/data/types";
 import type { Answers, AnswerValue } from "@/lib/forms/schema";
 import { getFormDefinition, type FieldDef } from "@/lib/forms/tracks";
 import { isTrack, STATUS_LABEL, TRACK_LABEL, type Decision, type Status } from "@/lib/types";
 import { RoadieScreen } from "../../RoadieScreen";
+import { loadApplicant } from "../../applicant-data";
+import { applicationsByTrack } from "../../applicant-nav";
 import { formatDateTime } from "../../format";
 
 interface StatusPageProps {
@@ -76,7 +77,7 @@ function timelineFor(application: MyApplication): TimelineStep[] {
     },
     {
       key: "decision",
-      icon: decided ? application.status : "accepted",
+      icon: decided ? application.status : "draft",
       label: decided ? STATUS_LABEL[application.status] : "Decision",
       detail: application.decided_at ? formatDateTime(application.decided_at) : "Not yet",
       reached: decided,
@@ -147,7 +148,8 @@ export default async function StatusPage({ params }: StatusPageProps) {
   if (!isTrack(track)) notFound();
   await requireRole("applicant");
 
-  const application = await getMyApplication(track);
+  const [, applications] = await loadApplicant();
+  const application = applicationsByTrack(applications).get(track);
   if (!application || application.status === "draft") redirect(`/app/apply/${track}`);
 
   const definition = getFormDefinition(track);

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { getMyApplication } from "@/lib/data/applications";
-import { getMyPet } from "@/lib/data/pets";
 import { requireRole } from "@/lib/data/profiles";
 import { getFormDefinition } from "@/lib/forms/tracks";
 import { isTrack, TRACK_LABEL } from "@/lib/types";
+import { loadApplicant } from "../../applicant-data";
+import { applicationsByTrack } from "../../applicant-nav";
 import { ApplicationForm } from "./ApplicationForm";
-import { StartDraft } from "./StartDraft";
 
 interface ApplyPageProps {
   params: Promise<{ track: string }>;
@@ -22,17 +21,18 @@ export default async function ApplyPage({ params }: ApplyPageProps) {
   if (!isTrack(track)) notFound();
   await requireRole("applicant");
 
-  const [pet, application] = await Promise.all([getMyPet(), getMyApplication(track)]);
+  const [pet, applications] = await loadApplicant();
   if (!pet) redirect("/app/roadie");
-  if (!application) return <StartDraft track={track} />;
-  if (application.status !== "draft") redirect(`/app/status/${track}`);
+  const definition = getFormDefinition(track);
+  const application = applicationsByTrack(applications).get(track);
+  if (application && application.status !== "draft") redirect(`/app/status/${track}`);
 
   return (
     <ApplicationForm
-      key={application.id}
+      key={track}
       track={track}
-      definition={getFormDefinition(track)}
-      initialAnswers={application.answers}
+      definition={definition}
+      initialAnswers={application?.answers ?? {}}
     />
   );
 }

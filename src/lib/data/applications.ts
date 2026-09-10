@@ -13,10 +13,8 @@ import {
   type Status,
   type Track,
 } from "@/lib/types";
-import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
 import { completion, parseAnswers, validateAnswers, type Answers } from "@/lib/forms/schema";
 import type {
-  AdjacentIds,
   Application,
   ApplicationDetail,
   ApplicationFilters,
@@ -27,7 +25,7 @@ import type {
   Review,
   ReviewerStat,
 } from "@/lib/data/types";
-import { requireRole, requireUser } from "@/lib/data/profiles";
+import { getCurrentUser, requireRole, requireUser } from "@/lib/data/profiles";
 import { awardXp, awardXpToUser, getPetForUser } from "@/lib/data/pets";
 import { listReviews } from "@/lib/data/reviews";
 
@@ -107,7 +105,8 @@ export async function getMyApplication(track: Track): Promise<MyApplication | nu
 export async function createDraft(track: Track): Promise<ActionResult<MyApplication>> {
   const parsed = trackSchema.safeParse(track);
   if (!parsed.success) return { ok: false, error: "Unknown track" };
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to continue" };
   const supabase = await createClient();
 
   const existing = await getMyApplication(parsed.data);
@@ -136,18 +135,13 @@ export async function saveDraft(track: Track, answers: Answers): Promise<ActionR
   if (!parsedTrack.success) return { ok: false, error: "Unknown track" };
   if (!parsedAnswers.success) return { ok: false, error: "Some answers could not be read" };
 
-  const user = await requireUser();
-  const supabase = await createClient();
-  const { data: current } = await supabase
-    .from("applications")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("track", parsedTrack.data)
-    .maybeSingle();
-  if (!current) return { ok: false, error: "Start the application before saving" };
+  const started = await createDraft(parsedTrack.data);
+  if (!started.ok) return started;
+  const current = started.data;
   if (current.status !== "draft") return { ok: false, error: "This application is locked after submission" };
 
-  const merged: Answers = { ...parseAnswers(current.answers), ...parsedAnswers.data };
+  const supabase = await createClient();
+  const merged: Answers = { ...current.answers, ...parsedAnswers.data };
   const { data, error } = await supabase
     .from("applications")
     .update({ answers: merged })
@@ -168,7 +162,8 @@ export async function submitApplication(track: Track): Promise<ActionResult<MyAp
   const parsedTrack = trackSchema.safeParse(track);
   if (!parsedTrack.success) return { ok: false, error: "Unknown track" };
 
-  const user = await requireUser();
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to continue" };
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("applications")
@@ -299,7 +294,8 @@ export async function setStatus(id: string, status: Status): Promise<ActionResul
   if (!parsedId.success) return { ok: false, error: "Unknown application" };
   if (!parsedStatus.success) return { ok: false, error: "Applications cannot be moved back to draft" };
 
-  await requireRole("organizer");
+  const organizer = await getCurrentUser();
+  if (organizer?.role !== "organizer") return { ok: false, error: "Not allowed" };
   const supabase = await createClient();
   const decided = isDecision(parsedStatus.data);
   const { data, error } = await supabase
@@ -316,17 +312,6 @@ export async function setStatus(id: string, status: Status): Promise<ActionResul
   revalidateOrganizer(data.id);
   revalidateApplicant(data.track);
   return { ok: true, data: toApplication(data) };
-}
-
-export async function getAdjacentIds(id: string, filters: ApplicationFilters = {}): Promise<AdjacentIds> {
-  const items = await listApplications(filters);
-  const index = items.findIndex((item) => item.id === id);
-  return {
-    prevId: index > 0 ? items[index - 1].id : null,
-    nextId: index >= 0 && index < items.length - 1 ? items[index + 1].id : null,
-    index,
-    total: items.length,
-  };
 }
 
 function emptyStatusCounts(): Record<Status, number> {
@@ -400,8 +385,4 @@ export async function getOrganizerStats(): Promise<OrganizerStats> {
     submissionsPerDay,
     reviewsPerReviewer,
   };
-}
-
-export async function getFormForTrack(track: Track) {
-  return FORM_DEFINITIONS[track];
 }

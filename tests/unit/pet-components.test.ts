@@ -84,7 +84,7 @@ describe("RoadieCard", () => {
     const egg = renderToStaticMarkup(createElement(RoadieCard, { spec: specFor("country", 25) }));
     expect(egg).toContain("Egg, 25 xp to hatchling");
     const grown = renderToStaticMarkup(createElement(RoadieCard, { spec: specFor("country", 200) }));
-    expect(grown).toContain("Grown, fully grown");
+    expect(grown).toContain("Grown, 200 xp");
   });
 });
 

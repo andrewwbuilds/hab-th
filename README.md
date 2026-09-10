@@ -9,7 +9,7 @@ per-track rubric, and set decisions that applicants see on their status page.
 
 ## Live
 
-- App: see the deployment section below (filled in once the cloud project exists).
+- App: not deployed yet. `scripts/deploy.sh` (see Deployment below) prints the production URL; paste it here.
 - Demo accounts: `organizer@demo.encore.dev` and `maya@demo.encore.dev`, password in `.env.example` (`SEED_PASSWORD`).
   The sign-in page has one-click demo buttons.
 
@@ -25,8 +25,8 @@ Requires Node 20.9+ and Docker (for the local Supabase stack).
 ```bash
 npm install
 npm run db:start          # starts Postgres, Auth, Studio (http://127.0.0.1:54323); applies supabase/migrations
-npx supabase status       # copy the API URL, anon key and service_role key into .env.local
 cp .env.example .env.local
+npx supabase status       # copy the API URL, anon key and service_role key into .env.local
 npm run db:types          # regenerate src/lib/database.types.ts from the local database
 npm run seed              # demo organizer + applicants with pets, applications, reviews
 npm run dev               # http://localhost:3000
@@ -41,6 +41,9 @@ npm run test              # vitest: pet engine, form schemas
 npm run test:e2e          # playwright: applicant flow, organizer flow, access control (needs the local stack + seed)
 ```
 
+Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2E_PORT` (default 3000). Set
+`E2E_BASE_URL` to run the specs against a server that is already up, local or deployed; no dev server is started then.
+
 ## Environment variables
 
 | Name | Where | Purpose |
@@ -49,7 +52,9 @@ npm run test:e2e          # playwright: applicant flow, organizer flow, access c
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | anon/publishable key; RLS does the access control |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | used only by the seed script and the organizer invite grant |
 | `ORGANIZER_INVITE_CODE` | server only | entered on sign-up to get an organizer account |
-| `SEED_PASSWORD` | server only | password for seeded demo accounts and the demo buttons |
+| `SEED_PASSWORD` | server, rendered into the sign-in page | password for the seeded demo accounts; the sign-in page passes it to the demo buttons, so treat it as public |
+| `E2E_PORT` | playwright only | port Playwright starts `next dev` on (default 3000) |
+| `E2E_BASE_URL` | playwright only | run the e2e specs against an existing server instead of starting one |
 
 ## How it is put together
 
@@ -65,13 +70,26 @@ npm run test:e2e          # playwright: applicant flow, organizer flow, access c
   return `{ok, data} | {ok, error}`.
 - `docs/decisions/` holds short records of the choices that were not obvious.
 
+## Deployment
+
+`scripts/deploy.sh` does the one-time cloud setup and each production deploy from the local tree. It needs
+`npx supabase login` and `vercel login` done once. It:
+
+1. links (or creates) the cloud Supabase project and pushes `supabase/migrations`,
+2. asks for the project's anon and service_role keys,
+3. writes them, `ORGANIZER_INVITE_CODE` and `SEED_PASSWORD` to `.env.cloud` (git-ignored) and runs the seed against
+   the cloud project,
+4. links the Vercel project, sets the same five variables as production env vars, and runs `vercel deploy --prod`.
+
+Override the invite code or demo password by exporting `ORGANIZER_INVITE_CODE` or `SEED_PASSWORD` before running it.
+Afterwards set Authentication -> URL configuration -> Site URL in the Supabase dashboard to the production URL and
+put that URL in the Live section above.
+
 ## Status
 
-In progress. See the bottom of this file for what is done and what is left.
-
 - [x] schema with RLS
-- [ ] UI kit and shell
-- [ ] Roadie engine and components
-- [ ] auth, applicant, organizer routes
-- [ ] end-to-end tests
+- [x] UI kit and shell
+- [x] Roadie engine and components
+- [x] auth, applicant, organizer routes
+- [x] end-to-end tests
 - [ ] cloud Supabase project and Vercel deployment

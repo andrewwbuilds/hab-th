@@ -1,5 +1,6 @@
 export { PetSprite, type PetSpriteProps } from "./PetSprite";
 export { RoadieProvider, useRoadie, type RoadieProviderProps, type RoadieState } from "./RoadieProvider";
+export type { RoadieLineContext } from "@/lib/pet/voice";
 export { RoadieDock, type RoadieDockProps } from "./RoadieDock";
 export { RoadieCard, type RoadieCardProps } from "./RoadieCard";
 export { RoadieQuiz, type RoadieQuizProps } from "./RoadieQuiz";
