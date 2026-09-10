@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const wantsApplicant = pathname === APPLICANT_PREFIX || pathname.startsWith(`${APPLICANT_PREFIX}/`);
   const wantsOrganizer = pathname === ORGANIZER_PREFIX || pathname.startsWith(`${ORGANIZER_PREFIX}/`);
   const isAuthPage = pathname === "/sign-in" || pathname === "/sign-up";
@@ -38,7 +38,8 @@ export async function proxy(request: NextRequest) {
   if (!user && (wantsApplicant || wantsOrganizer)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
-    url.searchParams.set("next", pathname);
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
 
