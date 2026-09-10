@@ -25,6 +25,11 @@
   --color-status-waitlisted: #f2994a;
   --color-status-rejected: #eb5757;
 
+  --color-track-hacker: #8b93ea;
+  --color-track-judge: #c79af5;
+  --color-track-mentor: #5cc3d1;
+  --color-track-volunteer: #e6957f;
+
   --color-danger: #eb5757;
   --color-success: #4cb782;
 
@@ -76,6 +81,10 @@ body {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
   border-radius: var(--radius-control);
+}
+
+dialog:not([open]) {
+  display: none;
 }
 
 ::-webkit-scrollbar {
