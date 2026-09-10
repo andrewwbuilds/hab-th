@@ -1,0 +1,1 @@
+-- Demo data is created by `npm run seed` (scripts/seed.ts), which needs the auth admin API.
