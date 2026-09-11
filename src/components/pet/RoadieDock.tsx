@@ -1,8 +1,9 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { cn } from "@/components/ui";
+import { ChevronDown, ChevronUp, MessageCircle } from "lucide-react";
+import { openAssistant } from "@/components/assistant/events";
+import { Kbd, cn } from "@/components/ui";
 import { PetSprite } from "./PetSprite";
 import { useRoadie } from "./RoadieProvider";
 
@@ -47,12 +48,13 @@ export interface RoadieDockProps {
 }
 
 export function RoadieDock({ className }: RoadieDockProps) {
-  const { spec, mood, line, nextVariant } = useRoadie();
+  const { spec, mood, line, nextVariant, context } = useRoadie();
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, serverCollapsed);
 
   if (!spec) return null;
 
   const toggle = () => writeCollapsed(!collapsed);
+  const askable = context.screen === "form";
 
   return (
     <div
@@ -69,15 +71,28 @@ export function RoadieDock({ className }: RoadieDockProps) {
         {collapsed ? <ChevronUp aria-hidden className="size-3" /> : <ChevronDown aria-hidden className="size-3" />}
       </button>
       <div className="flex items-end gap-2">
-        <div aria-live="polite" aria-atomic="true" className={cn("relative", collapsed && "sr-only")}>
-          {!collapsed && (
-            <div className="relative max-w-[260px] rounded-panel border border-border bg-panel px-3 py-2 text-base text-fg">
-              {line}
-              <span
-                aria-hidden
-                className="absolute -right-[5px] bottom-4 size-2 rotate-45 border-r border-t border-border bg-panel"
-              />
-            </div>
+        <div className={cn("flex flex-col items-end gap-1.5", collapsed && !askable && "sr-only")}>
+          <div aria-live="polite" aria-atomic="true" className={cn("relative", collapsed && "sr-only")}>
+            {!collapsed && (
+              <div className="relative max-w-[260px] rounded-panel border border-border bg-panel px-3 py-2 text-base text-fg">
+                {line}
+                <span
+                  aria-hidden
+                  className="absolute -right-[5px] bottom-4 size-2 rotate-45 border-r border-t border-border bg-panel"
+                />
+              </div>
+            )}
+          </div>
+          {askable && (
+            <button
+              type="button"
+              onClick={openAssistant}
+              className="inline-flex h-7 items-center gap-1.5 rounded-control border border-border bg-panel px-2 text-sm text-muted transition-colors duration-120 ease-out-quick hover:border-border-strong hover:text-fg"
+            >
+              <MessageCircle aria-hidden className="size-3.5" />
+              Ask {spec.name}
+              <Kbd>⌘J</Kbd>
+            </button>
           )}
         </div>
         <button

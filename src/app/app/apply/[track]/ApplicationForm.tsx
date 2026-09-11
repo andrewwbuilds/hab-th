@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Circle, CircleCheck } from "lucide-react";
+import { AssistantPanel } from "@/components/assistant";
 import { useRoadie } from "@/components/pet";
 import {
   Button,
@@ -343,6 +344,8 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
     setRoadieContext(contextFor(orderedErrors(fieldErrors)));
   };
 
+  const focusedFieldKey = () => focus.current?.field.key;
+
   const saveNow = () => {
     void flush().then((ok) => {
       if (!ok) toast({ title: "Could not save your draft", description: "Check your connection and try again.", variant: "error" });
@@ -520,6 +523,15 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
           </p>
         )}
       </Dialog>
+
+      <AssistantPanel
+        track={track}
+        definition={definition}
+        answers={answers}
+        getFocusedFieldKey={focusedFieldKey}
+        setAnswer={setAnswer}
+        scrollToField={scrollToField}
+      />
     </div>
   );
 }

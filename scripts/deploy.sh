@@ -52,13 +52,18 @@ node --env-file=.env.cloud --import tsx scripts/seed.ts
 
 say "5/5 Vercel"
 vercel link --yes
-for pair in \
-  "NEXT_PUBLIC_SUPABASE_URL=$API_URL" \
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" \
-  "SUPABASE_SERVICE_ROLE_KEY=$SERVICE" \
-  "ORGANIZER_INVITE_CODE=$INVITE" \
-  "SEED_PASSWORD=$SEEDPW" \
-  "DEMO_LOGIN=1"; do
+pairs=(
+  "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON"
+  "SUPABASE_SERVICE_ROLE_KEY=$SERVICE"
+  "ORGANIZER_INVITE_CODE=$INVITE"
+  "SEED_PASSWORD=$SEEDPW"
+  "DEMO_LOGIN=1"
+)
+for key in GROQ_API_KEY OPENROUTER_API_KEY AI_PROVIDER AI_MODEL; do
+  [ -n "${!key:-}" ] && pairs+=("$key=${!key}")
+done
+for pair in "${pairs[@]}"; do
   key="${pair%%=*}"; val="${pair#*=}"
   vercel env rm "$key" production --yes >/dev/null 2>&1 || true
   printf '%s' "$val" | vercel env add "$key" production >/dev/null

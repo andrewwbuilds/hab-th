@@ -37,7 +37,7 @@ npm run dev               # http://localhost:3000
 ```bash
 npm run typecheck
 npm run lint
-npm run test              # vitest: pet engine, form schemas
+npm run test              # vitest: pet engine, form schemas, assistant guide
 npm run test:e2e          # playwright: applicant flow, organizer flow, access control (needs the local stack + seed)
 ```
 
@@ -54,6 +54,10 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 | `ORGANIZER_INVITE_CODE` | server only | entered on sign-up to get an organizer account |
 | `SEED_PASSWORD` | server, and the sign-in page when `DEMO_LOGIN=1` | password for the seeded demo accounts; treat it as public |
 | `DEMO_LOGIN` | server | `1` shows one-click demo sign-in buttons on the sign-in page; unset to hide them |
+| `GROQ_API_KEY` | server only | Groq key for the Roadie assistant; picked first when set |
+| `OPENROUTER_API_KEY` | server only | OpenRouter key for the Roadie assistant; used when there is no Groq key |
+| `AI_PROVIDER` | server only | `groq`, `openrouter`, or `offline`; overrides the key-based choice |
+| `AI_MODEL` | server only | model id for the chosen provider; defaults to `openai/gpt-oss-120b` (Groq) or `google/gemma-4-31b-it:free` (OpenRouter) |
 | `E2E_PORT` | playwright only | port Playwright starts `next dev` on (default 3000) |
 | `E2E_BASE_URL` | playwright only | run the e2e specs against an existing server instead of starting one |
 
@@ -71,6 +75,18 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
   return `{ok, data} | {ok, error}`.
 - `docs/decisions/` holds short records of the choices that were not obvious.
 
+## Roadie assistant
+
+On the application form, Cmd/Ctrl+J (or the "Ask <name>" button under the Roadie) opens a chat with the applicant's
+Roadie. Type or use the mic (Web Speech API, hidden when the browser lacks it) to ask where a field is, what a
+question means, or for an example. Each reply can highlight a field, show an example with a "Use this" button, or
+clarify the question. The Roadie never writes the application for you.
+
+`src/app/api/assistant/route.ts` checks the applicant session, validates the body, and calls `src/lib/ai/provider.ts`,
+which talks to Groq or OpenRouter with plain `fetch` and JSON output, retries once on a fallback model, and then falls
+back to `src/lib/ai/offline.ts`. The offline guide answers from the form definition alone, so the assistant works with
+no API key at all; that is the mode the demo and the unit tests use. See `docs/decisions/0004-assistant-llm-with-offline-fallback.md`.
+
 ## Deployment
 
 `scripts/deploy.sh` does the one-time cloud setup and each production deploy from the local tree. It needs
@@ -80,9 +96,11 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 2. asks for the project's anon and service_role keys,
 3. writes them, `ORGANIZER_INVITE_CODE` and `SEED_PASSWORD` to `.env.cloud` (git-ignored) and runs the seed against
    the cloud project,
-4. links the Vercel project, sets the same five variables as production env vars, and runs `vercel deploy --prod`.
+4. links the Vercel project, sets those variables as production env vars, and runs `vercel deploy --prod`.
 
 Override the invite code or demo password by exporting `ORGANIZER_INVITE_CODE` or `SEED_PASSWORD` before running it.
+The assistant keys are forwarded only when exported first: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `AI_PROVIDER`, and
+`AI_MODEL`. Without them production runs the offline guide.
 Afterwards set Authentication -> URL configuration -> Site URL in the Supabase dashboard to the production URL and
 put that URL in the Live section above.
 

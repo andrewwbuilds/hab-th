@@ -199,3 +199,30 @@ Conventions:
 - TypeScript strict, no `any`. Use the generated `Database` type for Supabase clients.
 - No comments that restate code. Name things by domain: application, track, review, decision, roadie.
 - Commit messages follow Conventional Commits. Agents do not commit; the orchestrator commits per phase.
+
+## Roadie assistant
+
+An applicant on `/app/apply/[track]` can open a chat with their Roadie and ask about the form. The Roadie answers
+in its own tone and does one of three things: highlights a field, offers a short example answer, or clarifies what
+a question means. It never fills in the application on its own.
+
+- Open: Cmd/Ctrl+J toggles the panel; Escape closes it. The RoadieDock shows an "Ask <name> ⌘J" button on the form.
+  Opening the panel keeps the field the applicant was in as context.
+- Input: typed (Enter sends, Shift+Enter is a newline) or spoken through the Web Speech API when the browser
+  supports it. The mic button is hidden otherwise.
+- Contract: `POST /api/assistant` with `{track, fieldKey?, answers, messages}` returns
+  `{message, action?}` where `action` is `highlight {fieldKey}`, `example {fieldKey, text}`, or
+  `clarify {fieldKey?, text}`. Field keys not in the track definition are dropped. The route requires an applicant
+  session (401 otherwise), validates the body with zod, loads the definition server-side, keeps the last 8
+  messages at 2000 characters each, and allows 20 requests per user per minute (429 beyond that).
+- Actions in the UI: highlight scrolls to and focuses the field with a two second ring; example shows the text with
+  a "Use this" button that fills text, textarea, url, and number fields and matches option labels for selects;
+  clarify renders the text and highlights the field when one is named.
+- Providers: `src/lib/ai/provider.ts` calls Groq (`openai/gpt-oss-120b`, fallback `openai/gpt-oss-20b`) or
+  OpenRouter (`google/gemma-4-31b-it:free`, fallback `google/gemma-4-26b-a4b-it:free`) with JSON output. `AI_PROVIDER`
+  and `AI_MODEL` override the choice. On failure the fallback model is tried once, then the offline guide answers.
+- Offline guide: `src/lib/ai/offline.ts` needs no key or network. It picks the focused field or a field named in the
+  message and answers from the hint, placeholder, and options. It falls back to the first missing required field
+  only when the message asks for direction; a greeting gets a pointer to that field, not an example. This is what
+  runs when no key is configured. See ADR 0004.
+- The pet itself stays derived, not generated (ADR 0003). Only chat replies come from a model.
