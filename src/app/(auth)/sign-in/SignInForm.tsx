@@ -32,7 +32,7 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
   }
 
   return (
-    <form ref={formRef} action={action} className="flex flex-col gap-5" noValidate>
+    <form ref={formRef} action={action} className="flex flex-col gap-5 [@media(max-height:760px)]:gap-4" noValidate>
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-medium text-fg">Sign in</h1>
         <p className="text-md text-muted">Pick up where you and your Roadie left off.</p>
@@ -85,7 +85,7 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
       </p>
 
       {demoPassword && (
-        <div className="flex flex-col gap-3 border-t border-border pt-5">
+        <div className="flex flex-col gap-3 border-t border-border pt-5 [@media(max-height:760px)]:gap-2 [@media(max-height:760px)]:pt-4">
           <p className="text-sm text-muted">Or try a demo account</p>
           <div className="flex flex-col gap-2">
             {DEMO_ACCOUNTS.map((account) => (
@@ -94,7 +94,7 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
                 type="button"
                 disabled={pending}
                 onClick={() => fillDemo(account.email)}
-                className="flex h-12 w-full items-center justify-between gap-3 rounded-control border border-border-strong bg-panel px-3.5 text-left transition-colors duration-120 ease-out-quick hover:border-[#35363b] hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-12 w-full [@media(max-height:760px)]:h-11 items-center justify-between gap-3 rounded-control border border-border-strong bg-panel px-3.5 text-left transition-colors duration-120 ease-out-quick hover:border-[#35363b] hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="flex min-w-0 flex-col">
                   <span className="text-base font-medium text-fg">{account.label}</span>
