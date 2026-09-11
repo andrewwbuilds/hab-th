@@ -1,4 +1,5 @@
 import { Check, ListChecks, Mic, Save } from "lucide-react";
+import { HalftoneSkyline } from "@/components/landing/HalftoneSkyline";
 import { StatusIcon } from "@/components/ui/StatusIcon";
 import type { Status } from "@/lib/types";
 
@@ -66,6 +67,7 @@ const FEATURES = [
     title: "Saves as you type",
     body: "Drafts save on every change, so closing the laptop at 2am never costs you an answer.",
     art: SaveArt,
+    seed: 31,
   },
   {
     key: "voice",
@@ -73,6 +75,7 @@ const FEATURES = [
     title: "Talk it through",
     body: "Hold the mic and ask out loud. Your guide listens, then points, explains, or shows an example.",
     art: VoiceArt,
+    seed: 42,
   },
   {
     key: "status",
@@ -80,15 +83,17 @@ const FEATURES = [
     title: "Know where you stand",
     body: "Every track you applied to sits on one status page, and decisions show up the moment they are made.",
     art: StatusArt,
+    seed: 53,
   },
 ] as const;
 
 export function Features() {
   return (
     <div className="encore-feature-grid">
-      {FEATURES.map(({ key, icon: Icon, title, body, art: Art }) => (
+      {FEATURES.map(({ key, icon: Icon, title, body, art: Art, seed }) => (
         <article key={key} className="encore-feature">
           <div className="encore-feature-art" aria-hidden>
+            <HalftoneSkyline className="encore-feature-halftone" seed={seed} rise={0.6} />
             <Art />
           </div>
           <h3>

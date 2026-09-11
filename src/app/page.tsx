@@ -184,8 +184,9 @@ export default async function LandingPage() {
           {GUIDES.map((guide, i) => (
             <article key={guide.id}>
               <div className="encore-guide-art">
+                <HalftoneSkyline className="encore-guide-halftone" seed={60 + i} rise={0.6} />
                 <span className="encore-guide-label">PLAYER 0{i + 1}</span>
-                <PixelPortrait src={guide.image} name={guide.name} size={200} />
+                <PixelPortrait src={guide.image} name={guide.name} size={200} className="encore-guide-portrait" />
               </div>
               <div className="encore-guide-info">
                 <h3>
