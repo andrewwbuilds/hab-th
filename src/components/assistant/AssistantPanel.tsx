@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import {
   AudioLines,
   Check,
-  ChevronDown,
-  ChevronRight,
   Mic,
   MicOff,
   PenLine,
@@ -655,7 +653,6 @@ function QuickAnswers({ fields, answers, done, open, onToggle, onShow }: QuickAn
         aria-expanded={open}
         className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm text-muted transition-colors duration-120 ease-out-quick hover:text-fg"
       >
-        {open ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
         <span className="shrink-0">Quick answers I can fill</span>
         <span className="ml-auto shrink-0 tabular-nums text-dim">
           {done}/{total}
