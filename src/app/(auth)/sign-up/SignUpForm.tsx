@@ -39,7 +39,7 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
       <form action={action} className="flex flex-col gap-5" noValidate>
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-medium text-fg">Create account</h1>
-          <p className="text-md text-muted">One account covers every track you apply to.</p>
+          <p className="text-md text-muted">Pick the track you are applying for below.</p>
         </div>
 
         {next && <input type="hidden" name="next" value={next} />}

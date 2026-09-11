@@ -26,7 +26,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
               priority
               sizes="50vw"
               className="object-cover [image-rendering:pixelated]"
-              style={{ objectPosition: "66% 62%" }}
+              style={{ objectPosition: "80% 62%" }}
             />
             <div aria-hidden className="absolute inset-0 bg-linear-to-t from-[#08090a]/90 via-[#08090a]/10 to-transparent" />
             <figcaption className="absolute inset-x-0 bottom-0 p-8 [@media(max-height:760px)]:p-6">
