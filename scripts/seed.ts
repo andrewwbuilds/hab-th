@@ -2,6 +2,7 @@ import { createClient, type User } from "@supabase/supabase-js";
 import type { Database, Json } from "../src/lib/database.types";
 import { isDecision, type MusicProfile, type PetSpec, type Status, type Track } from "../src/lib/types";
 import { applyXp, derivePet } from "../src/lib/pet/engine";
+import { GUIDES } from "../src/lib/pet/guides";
 import { FORM_DEFINITIONS } from "../src/lib/forms/tracks";
 import { completion, validateAnswers, type Answers } from "../src/lib/forms/schema";
 
@@ -49,10 +50,13 @@ interface ApplicationSeed {
   reviews?: ReviewSeed[];
 }
 
+type GuideId = (typeof GUIDES)[number]["id"];
+
 interface ApplicantSeed {
   email: string;
   fullName: string;
-  petName: string;
+  /** Every demo Roadie is one of the organizers, so the walkthrough shows a familiar face. */
+  guide: GuideId;
   music: MusicProfile;
   applications: ApplicationSeed[];
 }
@@ -73,7 +77,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `maya${DEMO_DOMAIN}`,
     fullName: "Maya Chen",
-    petName: "Pixlux",
+    guide: "gary",
     music: {
       genres: ["electronic", "pop", "indie"],
       energy: 4,
@@ -120,7 +124,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `diego${DEMO_DOMAIN}`,
     fullName: "Diego Alvarez",
-    petName: "Rumbo",
+    guide: "eddy",
     music: {
       genres: ["latin", "hiphop"],
       energy: 5,
@@ -171,7 +175,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `priya${DEMO_DOMAIN}`,
     fullName: "Priya Raman",
-    petName: "Quillon",
+    guide: "eric",
     music: {
       genres: ["classical", "jazz"],
       energy: 2,
@@ -229,7 +233,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `jonah${DEMO_DOMAIN}`,
     fullName: "Jonah Whitfield",
-    petName: "Fenwick",
+    guide: "gary",
     music: {
       genres: ["indie", "rock"],
       energy: 3,
@@ -283,7 +287,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `amara${DEMO_DOMAIN}`,
     fullName: "Amara Okafor",
-    petName: "Velvetine",
+    guide: "eddy",
     music: {
       genres: ["rnb", "jazz", "hiphop"],
       energy: 3,
@@ -339,7 +343,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `leo${DEMO_DOMAIN}`,
     fullName: "Leo Park",
-    petName: "Tapelo",
+    guide: "eric",
     music: {
       genres: ["lofi", "indie"],
       energy: 1,
@@ -383,7 +387,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `sofia${DEMO_DOMAIN}`,
     fullName: "Sofia Bianchi",
-    petName: "Brava",
+    guide: "gary",
     music: {
       genres: ["rock", "metal"],
       energy: 5,
@@ -420,7 +424,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `tariq${DEMO_DOMAIN}`,
     fullName: "Tariq Hassan",
-    petName: "Solenne",
+    guide: "eddy",
     music: {
       genres: ["pop", "rnb"],
       energy: 4,
@@ -474,7 +478,7 @@ const APPLICANTS: ApplicantSeed[] = [
   {
     email: `nell${DEMO_DOMAIN}`,
     fullName: "Nell Kowalski",
-    petName: "Marlow",
+    guide: "eric",
     music: {
       genres: ["country", "indie"],
       energy: 2,
@@ -559,7 +563,13 @@ async function promoteToOrganizer(id: string, email: string, fullName: string): 
 }
 
 function petFor(applicant: ApplicantSeed): PetSpec {
-  let spec = applyXp(derivePet(applicant.music, applicant.petName), "petCreated");
+  const guide = GUIDES.find((candidate) => candidate.id === applicant.guide);
+  if (!guide) throw new Error(`Unknown guide ${applicant.guide} for ${applicant.email}`);
+  const base = derivePet(applicant.music, guide.name);
+  let spec = applyXp(
+    { ...base, traits: { ...base.traits, guide: { kind: guide.id, image: guide.image } } },
+    "petCreated",
+  );
   if (applicant.applications.length > 0) spec = applyXp(spec, "firstDraft");
   for (const application of applicant.applications) {
     for (const section of completion(application.track, application.answers).sectionsDone) {

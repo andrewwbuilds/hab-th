@@ -28,7 +28,7 @@ npm run db:start          # starts Postgres, Auth, Studio (http://127.0.0.1:5432
 cp .env.example .env.local
 npx supabase status       # copy the API URL, anon key and service_role key into .env.local
 npm run db:types          # regenerate src/lib/database.types.ts from the local database
-npm run seed              # demo organizer + applicants with pets, applications, reviews
+npm run seed              # demo organizer + applicants with organizer guides, applications, reviews
 npm run dev               # http://localhost:3000
 ```
 
