@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TRACKS } from "@/lib/types";
-import type { Answers } from "@/lib/forms/schema";
+import type { Answers, AnswerValue } from "@/lib/forms/schema";
 import type { FieldDef, FormDefinition } from "@/lib/forms/tracks";
+import { isEssay, sanitizeFills, type Fill } from "@/lib/ai/fill";
 
 export const MAX_MESSAGES = 8;
 export const MAX_MESSAGE_CHARS = 2000;
@@ -24,10 +25,13 @@ export const guideRequestSchema = z.object({
 export type GuideMessage = z.infer<typeof guideMessageSchema>;
 export type GuideRequest = z.infer<typeof guideRequestSchema>;
 
+const rawFillSchema = z.object({ fieldKey: z.string(), value: answerValueSchema });
+
 export const guideActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("highlight"), fieldKey: z.string() }),
   z.object({ type: z.literal("example"), fieldKey: z.string(), text: z.string() }),
   z.object({ type: z.literal("clarify"), fieldKey: z.string().nullish(), text: z.string() }),
+  z.object({ type: z.literal("fill"), fields: z.array(rawFillSchema).max(40) }),
 ]);
 
 export const guideResponseSchema = z.object({
@@ -35,10 +39,71 @@ export const guideResponseSchema = z.object({
   action: guideActionSchema.nullish(),
 });
 
+/** The same contract as guideResponseSchema, in the shape strict providers (Groq) accept. */
+export const GUIDE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    message: { type: "string" },
+    action: {
+      anyOf: [
+        { type: "null" },
+        {
+          type: "object",
+          properties: { type: { type: "string", enum: ["highlight"] }, fieldKey: { type: "string" } },
+          required: ["type", "fieldKey"],
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["example"] },
+            fieldKey: { type: "string" },
+            text: { type: "string" },
+          },
+          required: ["type", "fieldKey", "text"],
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["clarify"] },
+            fieldKey: { type: ["string", "null"] },
+            text: { type: "string" },
+          },
+          required: ["type", "fieldKey", "text"],
+          additionalProperties: false,
+        },
+        {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["fill"] },
+            fields: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: { fieldKey: { type: "string" }, value: { type: "string" } },
+                required: ["fieldKey", "value"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["type", "fields"],
+          additionalProperties: false,
+        },
+      ],
+    },
+  },
+  required: ["message", "action"],
+  additionalProperties: false,
+} as const;
+
 export type GuideAction =
   | { type: "highlight"; fieldKey: string }
   | { type: "example"; fieldKey: string; text: string }
-  | { type: "clarify"; fieldKey?: string; text: string };
+  | { type: "clarify"; fieldKey?: string; text: string }
+  | { type: "fill"; fields: Fill[] };
+
+export type { Fill, AnswerValue };
 
 export interface GuideResponse {
   message: string;
@@ -71,11 +136,18 @@ function stripFences(raw: string): string {
   return trimmed;
 }
 
+/** Coaching text for an essay field: the hint plus the rule, never the model's draft. */
+export function essayCoaching(field: FieldDef): string {
+  return `${field.hint} This one is yours to write. Tell me what happened and I will ask the questions that pull the answer out of you.`;
+}
+
 /**
  * Turns model output into a GuideResponse. Invalid JSON becomes a plain message with no
- * action; an action naming a field that is not in the definition is dropped.
+ * action; an action naming a field that is not in the definition is dropped. Two guardrails
+ * live here: fills never touch an essay, and an example offered for an essay becomes coaching.
  */
-export function parseGuideResponse(raw: string, validKeys: Set<string>): GuideResponse {
+export function parseGuideResponse(raw: string, definition: FormDefinition): GuideResponse {
+  const fields = new Map(fieldsOf(definition).map((field) => [field.key, field]));
   let json: unknown;
   try {
     json = JSON.parse(stripFences(raw));
@@ -91,22 +163,30 @@ export function parseGuideResponse(raw: string, validKeys: Set<string>): GuideRe
   if (!action) return withFallbackMessage(out);
   switch (action.type) {
     case "highlight":
-      if (validKeys.has(action.fieldKey)) out.action = { type: "highlight", fieldKey: action.fieldKey };
+      if (fields.has(action.fieldKey)) out.action = { type: "highlight", fieldKey: action.fieldKey };
       break;
-    case "example":
-      if (validKeys.has(action.fieldKey) && action.text.trim()) {
-        out.action = { type: "example", fieldKey: action.fieldKey, text: action.text.trim() };
-      }
+    case "example": {
+      const field = fields.get(action.fieldKey);
+      if (!field || !action.text.trim()) break;
+      out.action = isEssay(field)
+        ? { type: "clarify", fieldKey: field.key, text: essayCoaching(field) }
+        : { type: "example", fieldKey: field.key, text: action.text.trim() };
       break;
+    }
     case "clarify":
       if (action.text.trim()) {
         out.action = {
           type: "clarify",
           text: action.text.trim(),
-          ...(action.fieldKey && validKeys.has(action.fieldKey) ? { fieldKey: action.fieldKey } : {}),
+          ...(action.fieldKey && fields.has(action.fieldKey) ? { fieldKey: action.fieldKey } : {}),
         };
       }
       break;
+    case "fill": {
+      const fills = sanitizeFills(definition, action.fields);
+      if (fills.length > 0) out.action = { type: "fill", fields: fills };
+      break;
+    }
   }
   return withFallbackMessage(out);
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import type { PetSpec } from "@/lib/types";
-import { fieldKeysOf, parseGuideResponse, type GuideInput, type GuideResponse } from "@/lib/ai/guide";
+import { GUIDE_JSON_SCHEMA, parseGuideResponse, type GuideInput, type GuideResponse } from "@/lib/ai/guide";
 import { resolveProvider, type ProviderConfig } from "@/lib/ai/config";
 import { openrouterHeaders, retryable } from "@/lib/ai/http";
 import { offlineGuide } from "@/lib/ai/offline";
@@ -8,47 +8,7 @@ import { buildSystemPrompt } from "@/lib/ai/prompt";
 
 const TOTAL_TIMEOUT_MS = 20_000;
 const MIN_ATTEMPT_MS = 1_500;
-const MAX_OUTPUT_TOKENS = 400;
-
-const GUIDE_JSON_SCHEMA = {
-  type: "object",
-  properties: {
-    message: { type: "string" },
-    action: {
-      anyOf: [
-        { type: "null" },
-        {
-          type: "object",
-          properties: { type: { type: "string", enum: ["highlight"] }, fieldKey: { type: "string" } },
-          required: ["type", "fieldKey"],
-          additionalProperties: false,
-        },
-        {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: ["example"] },
-            fieldKey: { type: "string" },
-            text: { type: "string" },
-          },
-          required: ["type", "fieldKey", "text"],
-          additionalProperties: false,
-        },
-        {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: ["clarify"] },
-            fieldKey: { type: ["string", "null"] },
-            text: { type: "string" },
-          },
-          required: ["type", "fieldKey", "text"],
-          additionalProperties: false,
-        },
-      ],
-    },
-  },
-  required: ["message", "action"],
-  additionalProperties: false,
-} as const;
+const MAX_OUTPUT_TOKENS = 700;
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -147,14 +107,13 @@ export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
     pet: input.pet,
   });
   const messages: ChatMessage[] = [{ role: "system", content: system }, ...input.messages];
-  const validKeys = fieldKeysOf(input.definition);
   const deadline = Date.now() + TOTAL_TIMEOUT_MS;
 
   for (const model of config.models) {
     const remaining = deadline - Date.now();
     if (remaining < MIN_ATTEMPT_MS) break;
     const attempt = await chat(config, model, messages, remaining);
-    if (attempt.ok) return parseGuideResponse(attempt.text, validKeys);
+    if (attempt.ok) return parseGuideResponse(attempt.text, input.definition);
     console.warn(`[assistant] ${config.name}/${model} failed: ${attempt.reason}`);
     if (!attempt.retry) break;
   }

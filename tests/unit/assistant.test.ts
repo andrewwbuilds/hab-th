@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_IMAGE_MODELS, IMAGE_ENDPOINT, resolveImageProvider, resolveProvider } from "../../src/lib/ai/config";
 import { LIMIT_PER_WINDOW, LIMIT_WINDOW_MS, allowRequest, resetLimiter } from "../../src/lib/ai/limiter";
-import { fieldKeysOf, parseGuideResponse } from "../../src/lib/ai/guide";
-import { exampleFor, offlineGuide, pickField } from "../../src/lib/ai/offline";
+import { coerceFill, fillIntro, isEssay, sanitizeFills } from "../../src/lib/ai/fill";
+import { essayCoaching, parseGuideResponse } from "../../src/lib/ai/guide";
+import { exampleFor, extractFills, offlineGuide, pickField } from "../../src/lib/ai/offline";
 import { PORTRAIT_PROMPT, buildPortraitRequest, parsePortraitResponse } from "../../src/lib/ai/portrait";
 import { buildSystemPrompt } from "../../src/lib/ai/prompt";
 import { FORM_DEFINITIONS } from "../../src/lib/forms/tracks";
 
 const hacker = FORM_DEFINITIONS.hacker;
-const keys = fieldKeysOf(hacker);
 const fields = hacker.sections.flatMap((section) => section.fields);
 const firstRequired = fields.find((field) => field.required);
 const firstSelect = fields.find((field) => field.type === "select" && field.options);
 const firstMulti = fields.find((field) => field.type === "multiselect" && field.options);
 const secondRequired = fields.filter((field) => field.required)[1];
+const firstEssay = fields.find((field) => field.essay);
 
-if (!firstRequired || !firstSelect || !firstMulti || !secondRequired) {
+if (!firstRequired || !firstSelect || !firstMulti || !secondRequired || !firstEssay) {
   throw new Error("hacker track lost the fields these tests rely on");
 }
 
@@ -25,7 +26,7 @@ describe("parseGuideResponse", () => {
       message: "It is in the first section.",
       action: { type: "highlight", fieldKey: firstRequired.key },
     });
-    expect(parseGuideResponse(raw, keys)).toEqual({
+    expect(parseGuideResponse(raw, hacker)).toEqual({
       message: "It is in the first section.",
       action: { type: "highlight", fieldKey: firstRequired.key },
     });
@@ -33,11 +34,11 @@ describe("parseGuideResponse", () => {
 
   it("strips code fences before parsing", () => {
     const raw = `\`\`\`json\n{"message":"Hi","action":null}\n\`\`\``;
-    expect(parseGuideResponse(raw, keys)).toEqual({ message: "Hi" });
+    expect(parseGuideResponse(raw, hacker)).toEqual({ message: "Hi" });
   });
 
   it("falls back to the raw text when the output is not JSON", () => {
-    expect(parseGuideResponse("Just tell me about yourself.", keys)).toEqual({
+    expect(parseGuideResponse("Just tell me about yourself.", hacker)).toEqual({
       message: "Just tell me about yourself.",
     });
   });
@@ -47,12 +48,12 @@ describe("parseGuideResponse", () => {
       message: "Try this.",
       action: { type: "example", fieldKey: "not_a_field", text: "placeholder" },
     });
-    expect(parseGuideResponse(raw, keys)).toEqual({ message: "Try this." });
+    expect(parseGuideResponse(raw, hacker)).toEqual({ message: "Try this." });
     const clarify = JSON.stringify({
       message: "It means this.",
       action: { type: "clarify", fieldKey: "not_a_field", text: "An explanation." },
     });
-    expect(parseGuideResponse(clarify, keys)).toEqual({
+    expect(parseGuideResponse(clarify, hacker)).toEqual({
       message: "It means this.",
       action: { type: "clarify", text: "An explanation." },
     });
@@ -60,7 +61,160 @@ describe("parseGuideResponse", () => {
 
   it("uses the action text when the message is empty", () => {
     const raw = JSON.stringify({ message: "", action: { type: "clarify", fieldKey: null, text: "Only this." } });
-    expect(parseGuideResponse(raw, keys).message).toBe("Only this.");
+    expect(parseGuideResponse(raw, hacker).message).toBe("Only this.");
+  });
+
+  it("keeps a fill for quick fields and coerces the values", () => {
+    const raw = JSON.stringify({
+      message: "Set.",
+      action: {
+        type: "fill",
+        fields: [
+          { fieldKey: "school", value: "UC Berkeley" },
+          { fieldKey: "graduation_year", value: "2027" },
+          { fieldKey: "shirt_size", value: "M" },
+          { fieldKey: "skills", value: "frontend, Backend" },
+          { fieldKey: "first_hackathon", value: "true" },
+          { fieldKey: "github", value: "github.com/andrew" },
+        ],
+      },
+    });
+    expect(parseGuideResponse(raw, hacker).action).toEqual({
+      type: "fill",
+      fields: [
+        { fieldKey: "school", value: "UC Berkeley" },
+        { fieldKey: "graduation_year", value: 2027 },
+        { fieldKey: "shirt_size", value: "m" },
+        { fieldKey: "skills", value: ["frontend", "backend"] },
+        { fieldKey: "first_hackathon", value: true },
+        { fieldKey: "github", value: "https://github.com/andrew" },
+      ],
+    });
+  });
+
+  it("never fills an essay, even when the model tries", () => {
+    const raw = JSON.stringify({
+      message: "Done.",
+      action: {
+        type: "fill",
+        fields: [
+          { fieldKey: firstEssay.key, value: "A whole drafted essay." },
+          { fieldKey: "school", value: "Cal" },
+        ],
+      },
+    });
+    expect(parseGuideResponse(raw, hacker).action).toEqual({
+      type: "fill",
+      fields: [{ fieldKey: "school", value: "Cal" }],
+    });
+    const onlyEssay = JSON.stringify({
+      message: "Done.",
+      action: { type: "fill", fields: [{ fieldKey: firstEssay.key, value: "Drafted." }] },
+    });
+    expect(parseGuideResponse(onlyEssay, hacker).action).toBeUndefined();
+  });
+
+  it("turns an example for an essay into coaching without the model's text", () => {
+    const raw = JSON.stringify({
+      message: "Here you go.",
+      action: { type: "example", fieldKey: firstEssay.key, text: "I built a whole thing and it was hard..." },
+    });
+    const response = parseGuideResponse(raw, hacker);
+    expect(response.action).toEqual({ type: "clarify", fieldKey: firstEssay.key, text: essayCoaching(firstEssay) });
+    expect(JSON.stringify(response)).not.toContain("I built a whole thing");
+  });
+});
+
+describe("fill helpers", () => {
+  it("flags the long written answers as essays and nothing else", () => {
+    const essays = fields.filter(isEssay).map((field) => field.key);
+    expect(essays).toEqual(["proud_project", "build_idea", "why_encore"]);
+    expect(fields.filter((field) => field.type === "textarea" && !isEssay(field)).map((field) => field.key)).toEqual([
+      "needs",
+    ]);
+  });
+
+  it("coerces per field type and rejects what does not fit", () => {
+    const year = fields.find((field) => field.key === "graduation_year");
+    const size = fields.find((field) => field.key === "shirt_size");
+    const team = fields.find((field) => field.key === "team_status");
+    const github = fields.find((field) => field.key === "github");
+    if (!year || !size || !team || !github) throw new Error("hacker track lost a field");
+    expect(coerceFill(year, "2027")).toBe(2027);
+    expect(coerceFill(year, "1999")).toBeUndefined();
+    expect(coerceFill(year, "soon")).toBeUndefined();
+    expect(coerceFill(size, "xl")).toBe("xl");
+    expect(coerceFill(size, "2XL")).toBe("xxl");
+    expect(coerceFill(size, "huge")).toBeUndefined();
+    expect(coerceFill(team, "solo")).toBe("solo");
+    expect(coerceFill(team, "Full team of four")).toBe("full");
+    expect(coerceFill(team, "have some teammates")).toBe("partial");
+    expect(coerceFill(github, "not a url")).toBeUndefined();
+    expect(coerceFill(github, "https://github.com/x")).toBe("https://github.com/x");
+    expect(coerceFill(firstEssay, "anything")).toBeUndefined();
+  });
+
+  it("drops unknown keys and duplicates when sanitizing", () => {
+    expect(
+      sanitizeFills(hacker, [
+        { fieldKey: "nope", value: "x" },
+        { fieldKey: "school", value: "Cal" },
+        { fieldKey: "school", value: "Stanford" },
+      ]),
+    ).toEqual([{ fieldKey: "school", value: "Cal" }]);
+  });
+
+  it("introduces the quick answers still open and keeps the essays off the list", () => {
+    const intro = fillIntro(hacker, {});
+    expect(intro).toMatch(/school/);
+    expect(intro).toMatch(/3 written answers stay yours/);
+    expect(intro).not.toMatch(/proud/i);
+    const later = fillIntro(hacker, { school: "Cal" });
+    expect(later).not.toMatch(/\bschool\b/);
+  });
+});
+
+describe("offline fill extractor", () => {
+  it("pulls links, a year, pronouns, options, and the first-hackathon flag out of a statement", () => {
+    const fills = extractFills(
+      hacker,
+      "I'm a junior at UC Berkeley, class of 2027, she/her, github.com/aw and my site is aw.dev. Intermediate, frontend and design, solo, shirt size M, and it's my first hackathon.",
+    );
+    const byKey = Object.fromEntries(fills.map((fill) => [fill.fieldKey, fill.value]));
+    expect(byKey.school).toBe("UC Berkeley");
+    expect(byKey.graduation_year).toBe(2027);
+    expect(byKey.pronouns).toBe("she/her");
+    expect(byKey.github).toBe("https://github.com/aw");
+    expect(byKey.portfolio).toBe("https://aw.dev");
+    expect(byKey.experience_level).toBe("intermediate");
+    expect(byKey.skills).toEqual(["frontend", "design"]);
+    expect(byKey.team_status).toBe("solo");
+    expect(byKey.shirt_size).toBe("m");
+    expect(byKey.first_hackathon).toBe(true);
+    expect(byKey.proud_project).toBeUndefined();
+  });
+
+  it("fills nothing for questions and greetings", () => {
+    expect(extractFills(hacker, "what does solo mean?")).toEqual([]);
+    expect(extractFills(hacker, "hello")).toEqual([]);
+    expect(extractFills(hacker, "explain the shirt size question")).toEqual([]);
+  });
+
+  it("answers a statement with a fill action and points at the next quick field", () => {
+    const response = offlineGuide({ definition: hacker, answers: {}, message: "Shirt size L, class of 2028." });
+    expect(response.action?.type).toBe("fill");
+    expect(response.message).toMatch(/Shirt size/);
+    expect(response.message).toMatch(/Next:/);
+  });
+
+  it("coaches instead of drafting when asked for an essay example", () => {
+    const response = offlineGuide({
+      definition: hacker,
+      answers: {},
+      fieldKey: firstEssay.key,
+      message: "give me an example",
+    });
+    expect(response.action).toEqual({ type: "clarify", fieldKey: firstEssay.key, text: essayCoaching(firstEssay) });
   });
 });
 
@@ -255,7 +409,7 @@ describe("buildSystemPrompt", () => {
       fieldKey: firstRequired.key,
       pet: null,
     });
-    for (const key of keys) expect(prompt).toContain(`key=${key}`);
+    for (const field of fields) expect(prompt).toContain(`key=${field.key}`);
     expect(prompt).not.toContain("x".repeat(700));
     expect(prompt).toContain(`cursor is in field "${firstRequired.key}"`);
     expect(prompt).toContain("their Roadie");
