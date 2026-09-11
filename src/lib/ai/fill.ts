@@ -169,13 +169,11 @@ export function fillIntro(definition: FormDefinition, answers: Answers): string 
   } else {
     const labels = open.map((field) => field.label.toLowerCase());
     const shown = labels.length > 8 ? [...labels.slice(0, 7), `${labels.length - 7} more`] : labels;
-    parts.push(
-      `Tell me about yourself and I will fill in the quick stuff: ${joinLabels(shown)}. One breath or one at a time, typed or out loud.`,
-    );
+    parts.push(`I can fill: ${joinLabels(shown)}. Say them or type them.`);
   }
   if (essays.length > 0) {
-    const count = essays.length === 1 ? "The written answer" : `The ${essays.length} written answers`;
-    parts.push(`${count} stay yours: I can ask questions and point at what a good one covers, but I will not write them.`);
+    const count = essays.length === 1 ? "The written answer stays" : `The ${essays.length} written answers stay`;
+    parts.push(`${count} yours. I ask questions; I do not write them.`);
   }
   return parts.join(" ");
 }

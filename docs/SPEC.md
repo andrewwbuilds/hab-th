@@ -234,9 +234,13 @@ It never writes an essay.
   "Quick answers I can fill" strip under the header shows n/total with a chip per field, ticked once answered;
   clicking a chip scrolls to the field.
 - Input: typed (Enter sends, Shift+Enter is a newline), one spoken message (mic button), or **Talk live**: the mic
-  stays open between turns (continuous Web Speech recognition), each finished sentence is sent, and the reply is
-  read aloud with `speechSynthesis` in a rate and pitch per tone. The mic pauses while the Roadie speaks so it does
-  not hear itself, and reopens after. Both buttons are hidden when the browser lacks recognition.
+  stays open (continuous Web Speech recognition), finished utterances collect in the input box, and the whole
+  statement is sent 1.4 seconds after the applicant stops talking, so one breath is one message and one fill.
+  Enter or End sends what has collected so far. Replies are text only; nothing is read aloud. Both buttons are
+  hidden when the browser lacks recognition.
+- Voice of the guide: direct. One or two short sentences, no greeting, no praise, no filler. The pet's tone is a
+  single word of flavour in the prompt; the brevity rules win. After a fill the message is the fields set, then the
+  next empty field as a question.
 - Essays: a field with `essay: true` in `src/lib/forms/tracks.ts` (the long "tell us about" answers on every track)
   is never filled. Server side, `parseGuideResponse` drops fills for essay keys and turns an `example` on an essay
   into `clarify` with the field hint plus a fixed "yours to write" line, so a model draft never reaches the

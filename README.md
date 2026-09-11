@@ -87,8 +87,9 @@ form at once, shows what it set, and offers Undo. Ask where a field is, what a q
 and it highlights, clarifies, or shows an example with a "Use this" button.
 
 Voice is the browser's Web Speech API, so there is no audio cost and the buttons hide when the browser lacks it.
-The mic button takes one message. **Talk live** keeps the mic open, sends each finished sentence, reads the reply
-aloud in the Roadie's tone, and reopens the mic when it is done talking.
+The mic button takes one message. **Talk live** keeps the mic open, collects what you say in the input box, and
+sends it once you pause, so a whole statement lands as one fill. Replies are text only. The guide keeps its
+answers to a sentence or two.
 
 Essays are guarded on both sides. Fields marked `essay: true` in `src/lib/forms/tracks.ts` are never filled, an
 example the model offers for one is replaced server-side with the field hint and a "yours to write" line, and the

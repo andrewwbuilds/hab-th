@@ -23,10 +23,12 @@ is advice; the code is the guardrail.
 The offline guide gets a regular-expression extractor so a demo without keys still fills links, years,
 pronouns, option labels, and school or employer phrases from a plain statement. Questions are left alone.
 
-Live voice stays in the browser: continuous Web Speech recognition sends each finished sentence, and
-`speechSynthesis` reads the reply back in a rate and pitch chosen by the pet's tone. The mic closes while the
-Roadie speaks and reopens after. A hosted speech-to-speech API would sound better, but it adds cost, a socket,
-and a key, and the browser path works offline with the deterministic guide.
+Live voice stays in the browser: continuous Web Speech recognition. A hosted speech API would hear better,
+but it adds cost, a socket, and a key, and the browser path works offline with the deterministic guide.
+
+Amended 2026-09-11: replies are no longer read aloud. `speechSynthesis` sounded robotic, the mic had to close
+while it played, and it slowed the loop down. Live mode now buffers finished utterances and sends them after a
+1.4 second pause, so a spoken statement arrives as one message and one fill instead of a sentence at a time.
 
 Fills go through the form's own `setAnswer`, so autosave, validation, and the completion meter see them like
 typed input. The panel keeps the previous values and offers Undo per fill.

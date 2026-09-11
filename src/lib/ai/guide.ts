@@ -138,7 +138,7 @@ function stripFences(raw: string): string {
 
 /** Coaching text for an essay field: the hint plus the rule, never the model's draft. */
 export function essayCoaching(field: FieldDef): string {
-  return `${field.hint} This one is yours to write. Tell me what happened and I will ask the questions that pull the answer out of you.`;
+  return `${field.hint} Yours to write. Tell me what happened and I will ask questions.`;
 }
 
 /**
@@ -194,7 +194,7 @@ export function parseGuideResponse(raw: string, definition: FormDefinition): Gui
 function withFallbackMessage(response: GuideResponse): GuideResponse {
   if (response.message) return response;
   const text = response.action && "text" in response.action ? response.action.text : "";
-  return { ...response, message: text || "Ask me about any field and I will point you to it." };
+  return { ...response, message: text || "Ask about any field." };
 }
 
 export function truncate(text: string, max: number): string {

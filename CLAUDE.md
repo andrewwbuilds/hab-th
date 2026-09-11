@@ -15,7 +15,7 @@ the application lifecycle, the data model, routes, the Roadie pet rules, and the
 - `src/lib/pet/` Roadie derivation, names, voice. `src/components/pet/` sprite, dock, quiz, card.
 - `src/lib/ai/` assistant providers and the selfie portrait (`portrait.ts` pure, `portrait-provider.ts` fetch).
   `fill.ts` is the essay guardrail and value coercion; `essay: true` on a field in `tracks.ts` means the Roadie never
-  writes it. `src/components/assistant/useVoice.ts` wraps Web Speech recognition and synthesis for live talking.
+  writes it. `src/components/assistant/useVoice.ts` wraps Web Speech recognition (input only, no synthesis).
   Routes: `src/app/api/assistant`, `src/app/api/portrait`.
 - `src/components/ui/` Linear-style kit. `src/components/shell/` sidebar, topbar, command palette.
 - `supabase/migrations/` schema. `scripts/seed.ts` demo data. `tests/unit` vitest, `tests/e2e` playwright.

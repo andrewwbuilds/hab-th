@@ -218,10 +218,10 @@ function fillReply(definition: FormDefinition, answers: Answers, fills: Fill[]):
   const tail = next
     ? `Next: ${next.label.toLowerCase()}?`
     : essay
-      ? `That is the quick stuff done. "${essay.label}" is yours to write; I can ask questions if you want.`
-      : "That is everything I can fill.";
+      ? `Quick answers done. "${essay.label}" is yours to write.`
+      : "Nothing left for me to fill.";
   return {
-    message: `Got it. I set ${labels.join(", ")}. ${tail}`,
+    message: `Set ${labels.join(", ")}. ${tail}`,
     action: { type: "fill", fields: fills },
   };
 }
@@ -239,12 +239,11 @@ export function offlineGuide(input: OfflineGuideInput): GuideResponse {
     const next = firstIncompleteRequired(locate(input.definition), input.answers);
     if (!next) {
       return {
-        message:
-          "Every required answer is in. Ask me about any field by name, or read the form through once and submit.",
+        message: "Every required answer is in. Read it once and submit.",
       };
     }
     return {
-      message: `Ask me about a field by name and I will point to it, give an example, or explain it. Next up: ${next.field.label}.`,
+      message: `Ask about a field by name or tell me about yourself. Next: ${next.field.label}.`,
       action: { type: "highlight", fieldKey: next.field.key },
     };
   }
@@ -259,7 +258,7 @@ export function offlineGuide(input: OfflineGuideInput): GuideResponse {
     case "example":
       if (field.essay) {
         return {
-          message: `"${field.label}" is one I will not write for you.`,
+          message: `"${field.label}" is yours to write.`,
           action: { type: "clarify", fieldKey: field.key, text: essayCoaching(field) },
         };
       }
@@ -270,12 +269,12 @@ export function offlineGuide(input: OfflineGuideInput): GuideResponse {
         };
       }
       return {
-        message: `${field.hint} Here is a placeholder to shape your own answer, not one to copy.`,
+        message: `${field.hint} Placeholder below. Rewrite it in your words.`,
         action: { type: "example", fieldKey: field.key, text: exampleFor(field) },
       };
     case "clarify":
       return {
-        message: `Here is what "${field.label}" is asking for.`,
+        message: `"${field.label}":`,
         action: { type: "clarify", fieldKey: field.key, text: `${field.hint} ${constraints(field)}` },
       };
   }

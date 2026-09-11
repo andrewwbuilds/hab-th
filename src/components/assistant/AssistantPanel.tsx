@@ -24,6 +24,8 @@ import { useVoice } from "./useVoice";
 
 const HIGHLIGHT_MS = 2000;
 const HISTORY = 8;
+/** Live mode waits this long after the last finished utterance before sending, so one statement is one message. */
+const SILENCE_MS = 1400;
 const HIGHLIGHT_ATTRIBUTE = "data-assistant-highlight";
 
 const STYLES = `
@@ -131,25 +133,23 @@ export function fillValue(field: FieldDef, text: string): AnswerValue | undefine
 
 function greeting(name: string | undefined, field: FieldDef | undefined): string {
   const who = name ?? "Your Roadie";
-  const about = field ? `"${field.label}"` : "anything on this form";
-  return `${who} here. Ask me about ${about}, or just start telling me about yourself.`;
+  const about = field ? `"${field.label}"` : "any field";
+  return `${who}. Ask about ${about} or tell me about yourself.`;
 }
 
 function walkthroughIntro(name: string | undefined, label: string, field: FieldDef | undefined, voice: boolean): string {
   const who = name ?? "Your Roadie";
-  const ask = voice ? "Type, tap the mic, or hit Talk live and we can just have a conversation." : "Type here whenever you want.";
-  const first = field ? ` First up: "${field.label}".` : "";
-  return `${who} here. I'll walk you through the ${label} application one question at a time.${first} ${ask}`;
+  const how = voice ? "Type, or hit Talk live and say it." : "Type it here.";
+  const first = field ? ` First: "${field.label}".` : "";
+  return `${who}. ${label} application, one question at a time.${first} ${how}`;
+}
+
+function joinSpeech(head: string, tail: string): string {
+  return `${head} ${tail}`.replace(/\s+/g, " ").trim();
 }
 
 function walkthroughKey(track: Track): string {
   return `encore:walkthrough:${track}`;
-}
-
-/** What gets read aloud in live mode: the message, plus coaching text when there is some. */
-function spokenText(guide: GuideResponse): string {
-  const extra = guide.action?.type === "clarify" ? ` ${guide.action.text}` : "";
-  return `${guide.message}${extra}`;
 }
 
 export function AssistantPanel({
@@ -181,6 +181,10 @@ export function AssistantPanel({
   const pendingRef = useRef(false);
   const queued = useRef("");
   const sendRef = useRef<(raw: string) => Promise<void>>(async () => {});
+  /** Finished speech not yet sent. Live mode collects utterances here until the applicant pauses. */
+  const spoken = useRef("");
+  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveRef = useRef(false);
 
   useEffect(() => {
     entriesRef.current = entries;
@@ -189,24 +193,45 @@ export function AssistantPanel({
 
   const name = spec?.name;
 
-  const voice = useVoice(
-    {
-      onTranscript: (text, final) => {
-        if (!final) {
-          setInput(text);
-          return;
-        }
-        setInput("");
-        if (pendingRef.current) {
-          queued.current = `${queued.current} ${text}`.trim();
-          return;
-        }
-        void sendRef.current(text);
-      },
-      onError: (message) => toast({ title: "Microphone trouble", description: message, variant: "error" }),
+  const clearSilence = useCallback(() => {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    silenceTimer.current = null;
+  }, []);
+
+  /** Sends whatever speech has piled up, or queues it while a reply is still in flight. */
+  const flushSpeech = useCallback(() => {
+    clearSilence();
+    const text = spoken.current;
+    spoken.current = "";
+    if (!text) return;
+    setInput("");
+    if (pendingRef.current) {
+      queued.current = joinSpeech(queued.current, text);
+      return;
+    }
+    void sendRef.current(text);
+  }, [clearSilence]);
+
+  const voice = useVoice({
+    onTranscript: (text, final) => {
+      if (!final) {
+        setInput(joinSpeech(spoken.current, text));
+        return;
+      }
+      spoken.current = joinSpeech(spoken.current, text);
+      setInput(spoken.current);
+      if (!liveRef.current) {
+        flushSpeech();
+        return;
+      }
+      clearSilence();
+      silenceTimer.current = setTimeout(flushSpeech, SILENCE_MS);
     },
-    spec?.traits.tone,
-  );
+    onError: (message) => toast({ title: "Microphone trouble", description: message, variant: "error" }),
+  });
+  useEffect(() => {
+    liveRef.current = voice.live;
+  }, [voice.live]);
 
   const quick = useMemo(() => fillableFields(definition), [definition]);
   const quickDone = useMemo(() => quick.filter((field) => isAnswered(field, answers[field.key])).length, [quick, answers]);
@@ -230,12 +255,13 @@ export function AssistantPanel({
   const close = useCallback(() => {
     setOpen(false);
     voice.stopLive();
+    flushSpeech();
     const target = restoreFocus.current;
     const active = document.activeElement;
     const focusIsOurs = active === document.body || (panel.current?.contains(active) ?? false);
     if (target && document.contains(target) && focusIsOurs) target.focus({ preventScroll: true });
     restoreFocus.current = null;
-  }, [voice]);
+  }, [flushSpeech, voice]);
 
   const openPanel = useCallback(() => {
     const active = document.activeElement;
@@ -300,13 +326,13 @@ export function AssistantPanel({
       {
         id: nextId.current++,
         role: "assistant",
-        content: `${walkthroughIntro(name, TRACK_LABEL[track].toLowerCase(), field, voice.support.recognition)} ${fillIntro(definition, answersRef.current)}`,
+        content: `${walkthroughIntro(name, TRACK_LABEL[track], field, voice.supported)} ${fillIntro(definition, answersRef.current)}`,
         action: field ? { type: "clarify", fieldKey: field.key, text: field.hint } : undefined,
       },
     ]);
     setOpen(true);
     if (field) highlight(field.key);
-  }, [walkthrough, track, definition, name, voice.support.recognition, highlight]);
+  }, [walkthrough, track, definition, name, voice.supported, highlight]);
 
   useEffect(() => {
     if (!open) return;
@@ -325,6 +351,7 @@ export function AssistantPanel({
   useEffect(
     () => () => {
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
+      if (silenceTimer.current) clearTimeout(silenceTimer.current);
     },
     [],
   );
@@ -359,6 +386,9 @@ export function AssistantPanel({
     async (raw: string) => {
       const content = raw.trim();
       if (!content || pendingRef.current) return;
+      // Typed or spoken, whatever is in the box goes now; buffered speech must not send twice.
+      clearSilence();
+      spoken.current = "";
       const userEntry: ChatEntry = { id: nextId.current++, role: "user", content };
       const history = [...entriesRef.current, userEntry]
         .slice(-HISTORY)
@@ -384,7 +414,6 @@ export function AssistantPanel({
           ...current,
           { id: nextId.current++, role: "assistant", content: guide.message, action, changes },
         ]);
-        if (voice.live) await voice.speak(spokenText(guide));
       } catch {
         toast({
           title: `Could not reach ${name ?? "your Roadie"}`,
@@ -399,7 +428,7 @@ export function AssistantPanel({
         if (next) void sendRef.current(next);
       }
     },
-    [applyFill, getFocusedFieldKey, highlight, name, toast, track, voice],
+    [applyFill, clearSilence, getFocusedFieldKey, highlight, name, toast, track],
   );
   useEffect(() => {
     sendRef.current = send;
@@ -421,8 +450,12 @@ export function AssistantPanel({
   };
 
   const toggleLive = () => {
-    if (voice.live) voice.stopLive();
-    else voice.startLive();
+    if (voice.live) {
+      voice.stopLive();
+      flushSpeech();
+    } else {
+      voice.startLive();
+    }
   };
 
   const explainFocused = () => {
@@ -433,14 +466,12 @@ export function AssistantPanel({
   if (!open) return null;
 
   const status = voice.live
-    ? voice.speaking
-      ? "Speaking"
-      : voice.listening
-        ? "Listening"
-        : "Opening the mic"
+    ? voice.listening
+      ? "Listening"
+      : "Opening the mic"
     : pending
       ? "Thinking"
-      : "Talk to me, I fill the quick stuff";
+      : "Say it or type it. I fill the quick answers.";
 
   return (
     <div
@@ -453,7 +484,7 @@ export function AssistantPanel({
 
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border px-3">
         {spec ? (
-          <PetSprite spec={spec} size={30} mood={voice.speaking ? "happy" : mood} className="shrink-0" />
+          <PetSprite spec={spec} size={30} mood={mood} className="shrink-0" />
         ) : (
           <span aria-hidden className="size-7 shrink-0 rounded-full border border-dashed border-border-strong" />
         )}
@@ -464,7 +495,7 @@ export function AssistantPanel({
             {status}
           </span>
         </div>
-        {voice.support.recognition && (
+        {voice.supported && (
           <button
             type="button"
             onClick={toggleLive}
@@ -543,7 +574,7 @@ export function AssistantPanel({
         )}
         {userTurns === 0 && !pending && (
           <div className="flex flex-wrap gap-1.5 pl-[30px] pt-1">
-            {voice.support.recognition && !voice.live && (
+            {voice.supported && !voice.live && (
               <SuggestionChip icon={<AudioLines className="size-3.5" />} onClick={voice.startLive}>
                 Talk it through
               </SuggestionChip>
@@ -566,13 +597,7 @@ export function AssistantPanel({
           value={input}
           rows={1}
           placeholder={
-            voice.live
-              ? voice.speaking
-                ? "Wait for me to finish, or just type"
-                : "Say something, I am listening"
-              : voice.listening
-                ? "Listening"
-                : "Tell me about yourself or ask about a field"
+            voice.live ? "Listening. Pause and it sends." : voice.listening ? "Listening" : "Tell me about yourself or ask about a field"
           }
           aria-label="Message"
           onChange={(event) => setInput(event.target.value)}
@@ -580,10 +605,10 @@ export function AssistantPanel({
           className={cn(
             controlClass,
             "max-h-24 min-h-7 flex-1 resize-none px-2 py-1 leading-5 field-sizing-content",
-            voice.live && !voice.speaking && "border-accent/50",
+            voice.live && "border-accent/50",
           )}
         />
-        {voice.support.recognition && !voice.live && (
+        {voice.supported && !voice.live && (
           <Button
             variant={voice.listening ? "primary" : "ghost"}
             aria-pressed={voice.listening}
@@ -592,9 +617,6 @@ export function AssistantPanel({
             disabled={pending}
             icon={voice.listening ? <MicOff /> : <Mic />}
           />
-        )}
-        {voice.live && voice.speaking && (
-          <Button variant="ghost" aria-label="Stop talking" onClick={voice.cancelSpeech} icon={<Square className="fill-current" />} />
         )}
         <Button
           variant="primary"
