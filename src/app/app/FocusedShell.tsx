@@ -112,7 +112,7 @@ export function FocusedShell({ track, pet, user, children }: FocusedShellProps) 
             </form>
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </ToastProvider>
   );
