@@ -24,7 +24,7 @@ export function Topbar({ breadcrumbs = [], actions }: TopbarProps) {
                 {crumb.href && !last ? (
                   <Link
                     href={crumb.href}
-                    className="truncate rounded-[4px] px-1 text-muted transition-colors duration-120 ease-out-quick hover:bg-hover hover:text-fg"
+                    className="truncate rounded-control px-1 text-muted transition-colors duration-120 ease-out-quick hover:bg-hover hover:text-fg"
                   >
                     {crumb.label}
                   </Link>

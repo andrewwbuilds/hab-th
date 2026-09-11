@@ -66,7 +66,7 @@ export function RoadieDock({ className }: RoadieDockProps) {
         onClick={toggle}
         aria-expanded={!collapsed}
         aria-label={collapsed ? `Show what ${spec.name} is saying` : `Hide what ${spec.name} is saying`}
-        className="inline-flex size-5 items-center justify-center rounded-full border border-border bg-panel text-dim transition-colors duration-120 ease-out-quick hover:border-border-strong hover:text-fg"
+        className="inline-flex size-5 items-center justify-center rounded-control border border-border bg-panel text-dim transition-colors duration-120 ease-out-quick hover:border-border-strong hover:text-fg"
       >
         {collapsed ? <ChevronUp aria-hidden className="size-3" /> : <ChevronDown aria-hidden className="size-3" />}
       </button>
@@ -99,7 +99,7 @@ export function RoadieDock({ className }: RoadieDockProps) {
           type="button"
           onClick={nextVariant}
           aria-label={`Ask ${spec.name} to say something else`}
-          className="shrink-0 rounded-full transition-transform duration-120 ease-out-quick hover:scale-105 active:scale-95"
+          className="shrink-0 rounded-control transition-transform duration-120 ease-out-quick hover:scale-105 active:scale-95"
         >
           <PetSprite spec={spec} size={56} mood={mood} />
         </button>

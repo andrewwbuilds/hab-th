@@ -164,7 +164,7 @@ The UI is a faithful take on Linear's app (dark theme only for this deliverable)
 - Landing exception: `src/app/landing.css` pairs Aleo light (serif) with Inter in headings, uses notched mono
   uppercase buttons, and draws a halftone skyline on canvas. The layout borrows from the Twenty landing page.
   None of this applies inside the app.
-- Radius 6px on controls, 8px on panels. Borders 1px, never shadows except the command palette and popovers.
+- Radius 6px on every control, including chips and icon buttons; never pills. 8px on panels. Borders 1px, never shadows except the command palette and popovers.
 - Layout: left sidebar 232px (workspace name, nav with icons, Roadie mini at bottom for applicants), 40px top bar with
   breadcrumbs, content max-width 1040px for forms, full width for tables.
 - Density: 32px row height in tables, 28px controls, 8px/12px/16px/24px spacing rhythm.

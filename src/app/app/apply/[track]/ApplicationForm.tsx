@@ -156,7 +156,7 @@ function FieldControl({ field, value, error, onChange, onFocus }: FieldControlPr
                   )
                 }
                 className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-base transition-colors duration-120 ease-out-quick",
+                  "inline-flex h-7 items-center gap-1.5 rounded-control border px-3 text-base transition-colors duration-120 ease-out-quick",
                   active
                     ? "border-accent bg-accent-soft text-fg"
                     : "border-border-strong bg-panel text-muted hover:border-[#35363b] hover:text-fg",

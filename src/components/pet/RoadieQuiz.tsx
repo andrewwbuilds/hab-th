@@ -155,7 +155,7 @@ function GenrePicker({ selected, onToggle }: GenrePickerProps) {
             disabled={!isSelected && full}
             onClick={() => onToggle(genre)}
             className={cn(
-              "inline-flex h-7 select-none items-center gap-1.5 rounded-full border px-3 text-base transition-colors duration-120 ease-out-quick disabled:cursor-not-allowed disabled:opacity-50",
+              "inline-flex h-7 select-none items-center gap-1.5 rounded-control border px-3 text-base transition-colors duration-120 ease-out-quick disabled:cursor-not-allowed disabled:opacity-50",
               isSelected
                 ? "border-accent bg-accent-soft text-fg"
                 : "border-border-strong bg-panel text-muted hover:border-[#35363b] hover:text-fg disabled:hover:border-border-strong disabled:hover:text-muted",

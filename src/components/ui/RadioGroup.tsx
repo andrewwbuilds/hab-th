@@ -60,7 +60,7 @@ export function RadioGroup({
             className={cn(
               "group relative cursor-pointer select-none border transition-colors duration-120 ease-out-quick has-checked:border-accent has-focus-visible:outline-2 has-focus-visible:outline-accent has-focus-visible:outline-offset-1",
               pills
-                ? "inline-flex h-7 items-center gap-1.5 rounded-full border-border-strong bg-panel px-3 text-base text-muted hover:border-[#35363b] hover:text-fg has-checked:bg-accent-soft has-checked:text-fg"
+                ? "inline-flex h-7 items-center gap-1.5 rounded-control border-border-strong bg-panel px-3 text-base text-muted hover:border-[#35363b] hover:text-fg has-checked:bg-accent-soft has-checked:text-fg"
                 : "flex items-start gap-2.5 rounded-control border-border bg-panel px-3 py-2.5 hover:border-border-strong has-checked:bg-accent-soft",
               isDisabled && "opacity-50 cursor-not-allowed",
             )}
