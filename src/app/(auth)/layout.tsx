@@ -17,15 +17,17 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
 
       <div className="relative hidden lg:block lg:h-screen lg:py-3 lg:pr-3">
         <figure className="relative h-full overflow-hidden rounded-panel border border-border bg-[#171b32]">
-          <Image
-            src="/art/encore-palace.png"
-            alt="Eddy, Gary, and Eric building a project together on the steps of the Palace of Fine Arts, drawn in pixel art."
-            fill
-            priority
-            sizes="50vw"
-            className="object-cover [image-rendering:pixelated]"
-            style={{ objectPosition: "66% 62%" }}
-          />
+          <div className="absolute inset-x-0 top-0 h-[88%] [mask-image:linear-gradient(to_bottom,black_82%,transparent)]">
+            <Image
+              src="/art/encore-palace.png"
+              alt="Eddy, Gary, and Eric building a project together on the steps of the Palace of Fine Arts, drawn in pixel art."
+              fill
+              priority
+              sizes="50vw"
+              className="object-cover [image-rendering:pixelated]"
+              style={{ objectPosition: "66% 0%" }}
+            />
+          </div>
           <div aria-hidden className="absolute inset-0 bg-linear-to-t from-[#08090a]/90 via-[#08090a]/10 to-transparent" />
           <figcaption className="absolute inset-x-0 bottom-0 flex flex-col items-start gap-4 p-8 [@media(max-height:760px)]:gap-3 [@media(max-height:760px)]:p-6">
             <p className="max-w-[340px] rounded-panel border border-[#6b719a] bg-[#171923]/95 px-4 py-3 text-md text-fg">
