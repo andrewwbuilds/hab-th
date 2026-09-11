@@ -7,7 +7,7 @@ Generated with the built-in image_gen tool. These are new illustrations; the sup
 - `public/art/encore-palace.png`: Palace of Fine Arts scene with Eddy, Gary and Eric integrated into the illustration.
 - `public/art/encore-guides.png`: matching three-panel character sheet, rendered through CSS positions without pixelating the supplied photographs.
 
-The scene is a stylized San Francisco composition, not a literal geographic panorama. The landing page adds motion and speech bubbles in HTML/CSS so they remain readable and controllable. Existing saved guide IDs map to the illustrated sheet. Uploaded selfies retain the user-controlled pixel treatment.
+The scene is a stylized San Francisco composition, not a literal geographic panorama. The landing page adds motion and speech bubbles in HTML/CSS so they remain readable and controllable. Existing saved guide IDs map to the illustrated sheet. Uploaded selfies are redrawn in the same anime-inspired style by an image model (see ADR 0006); without an OpenRouter key they keep the user-controlled pixel treatment.
 
 ## Hero prompt
 

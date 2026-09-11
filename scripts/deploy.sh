@@ -60,7 +60,7 @@ pairs=(
   "SEED_PASSWORD=$SEEDPW"
   "DEMO_LOGIN=1"
 )
-for key in GROQ_API_KEY OPENROUTER_API_KEY AI_PROVIDER AI_MODEL; do
+for key in GROQ_API_KEY OPENROUTER_API_KEY AI_PROVIDER AI_MODEL AI_IMAGE_MODEL; do
   [ -n "${!key:-}" ] && pairs+=("$key=${!key}")
 done
 for pair in "${pairs[@]}"; do

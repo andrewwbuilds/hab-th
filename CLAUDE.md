@@ -13,6 +13,8 @@ the application lifecycle, the data model, routes, the Roadie pet rules, and the
 - `src/lib/data/` all Supabase access and server actions. Nothing else imports the Supabase client directly.
 - `src/lib/forms/tracks.ts` questions and rubric per track; `src/lib/forms/schema.ts` zod + completion helpers.
 - `src/lib/pet/` Roadie derivation, names, voice. `src/components/pet/` sprite, dock, quiz, card.
+- `src/lib/ai/` assistant providers and the selfie portrait (`portrait.ts` pure, `portrait-provider.ts` fetch).
+  Routes: `src/app/api/assistant`, `src/app/api/portrait`.
 - `src/components/ui/` Linear-style kit. `src/components/shell/` sidebar, topbar, command palette.
 - `supabase/migrations/` schema. `scripts/seed.ts` demo data. `tests/unit` vitest, `tests/e2e` playwright.
 

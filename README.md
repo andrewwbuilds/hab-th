@@ -51,14 +51,15 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | anon/publishable key; RLS does the access control |
-| `SUPABASE_SERVICE_ROLE_KEY` | server only | used by sign-up (creates confirmed users), the organizer invite grant and the seed script |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | used by the organizer invite grant and the seed script; with it, sign-up creates confirmed users, and without it sign-up needs "Confirm email" off in the Supabase project |
 | `ORGANIZER_INVITE_CODE` | server only | entered on sign-up to get an organizer account |
 | `SEED_PASSWORD` | server, and the sign-in page when `DEMO_LOGIN=1` | password for the seeded demo accounts; treat it as public |
 | `DEMO_LOGIN` | server | `1` shows one-click demo sign-in buttons on the sign-in page; unset to hide them |
 | `GROQ_API_KEY` | server only | Groq key for the Roadie assistant; picked first when set |
-| `OPENROUTER_API_KEY` | server only | OpenRouter key for the Roadie assistant; used when there is no Groq key |
+| `OPENROUTER_API_KEY` | server only | OpenRouter key; answers the assistant when there is no Groq key and is required for selfie portraits |
 | `AI_PROVIDER` | server only | `groq`, `openrouter`, or `offline`; overrides the key-based choice |
 | `AI_MODEL` | server only | model id for the chosen provider; defaults to `openai/gpt-oss-120b` (Groq) or `google/gemma-4-31b-it:free` (OpenRouter) |
+| `AI_IMAGE_MODEL` | server only | OpenRouter image model for selfie portraits; defaults to `google/gemini-3.1-flash-lite-image`, fallback `google/gemini-2.5-flash-image` |
 | `E2E_PORT` | playwright only | port Playwright starts `next dev` on (default 3000) |
 | `E2E_BASE_URL` | playwright only | run the e2e specs against an existing server instead of starting one |
 
@@ -71,7 +72,7 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 - `src/lib/forms/tracks.ts` defines each track's questions and rubric. Answers are stored as `jsonb`, validated with
   zod on submit, and rendered for organizers by walking the same definition.
 - `src/lib/pet/` is the Roadie engine: it derives a fixed pet spec, tracks xp, and picks voice lines by tone and
-  context. The guide picker (portrait, drawing, or photo) sets the guide's face, name, and voice.
+  context. The guide picker (a supplied character, a drawing, or a selfie) sets the guide's face, name, and voice.
   `src/components/pet/` renders the sprite, the dock, and the picker.
 - `src/lib/data/` is the only place that talks to Supabase from the app. Server actions validate input with zod and
   return `{ok, data} | {ok, error}`.
@@ -89,6 +90,16 @@ which talks to Groq or OpenRouter with plain `fetch` and JSON output, retries on
 back to `src/lib/ai/offline.ts`. The offline guide answers from the form definition alone, so the assistant works with
 no API key at all; that is the mode the demo and the unit tests use. See `docs/decisions/0004-assistant-llm-with-offline-fallback.md`.
 
+## Selfie portraits
+
+"Use your photo" in the guide picker sends the square selfie to `src/app/api/portrait/route.ts`, which asks
+OpenRouter's Images API (`src/lib/ai/portrait-provider.ts`) to redraw it in the Encore anime style with the photo as
+the reference image. The result comes back as a data URL, the browser shrinks it to 256px, and it is saved on the
+pet as a `portrait` guide. Groq has no image output and OpenRouter has no free image model, so this needs
+`OPENROUTER_API_KEY` and costs about four cents a portrait on the default model; the route allows six per user per
+minute. Without the key the picker falls back to the older client-side pixel treatment and says so.
+See `docs/decisions/0006-selfie-portraits-through-an-image-model.md`.
+
 ## Deployment
 
 `scripts/deploy.sh` does the one-time cloud setup and each production deploy from the local tree. It needs
@@ -101,8 +112,8 @@ no API key at all; that is the mode the demo and the unit tests use. See `docs/d
 4. links the Vercel project, sets those variables as production env vars, and runs `vercel deploy --prod`.
 
 Override the invite code or demo password by exporting `ORGANIZER_INVITE_CODE` or `SEED_PASSWORD` before running it.
-The assistant keys are forwarded only when exported first: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `AI_PROVIDER`, and
-`AI_MODEL`. Without them production runs the offline guide.
+The AI keys are forwarded only when exported first: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `AI_PROVIDER`, `AI_MODEL`,
+and `AI_IMAGE_MODEL`. Without them production runs the offline guide and pixel selfies.
 Afterwards set Authentication -> URL configuration -> Site URL in the Supabase dashboard to the production URL and
 put that URL in the Live section above.
 

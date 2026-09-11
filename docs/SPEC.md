@@ -1,6 +1,6 @@
 # Encore: hackathon application portal
 
-Take-home for Hackathon at Berkeley. A miniature hackathon management platform: applicants sign in and
+Take-home for CalHacks. A miniature hackathon management platform: applicants sign in and
 apply as a hacker, judge, mentor, or volunteer; organizers review, grade, and decide.
 
 Brand name: **Encore**. The pet companion feature is called a **Roadie**. An applicant can give their Roadie a
@@ -246,3 +246,18 @@ a question means. It never fills in the application on its own.
   only when the message asks for direction; a greeting gets a pointer to that field, not an example. This is what
   runs when no key is configured. See ADR 0004.
 - The pet itself stays derived, not generated (ADR 0003). Only chat replies come from a model.
+
+### Selfie portraits
+
+- The guide picker's "Use your photo" option captures or uploads a photo, squares it to 512px PNG in the browser,
+  and `POST /api/portrait` with `{image}` returns `{image}`: the same person redrawn as an anime-style portrait in
+  the Encore palette (`src/lib/ai/portrait.ts` holds the prompt). The browser shrinks it to 256px and saves it as a
+  `portrait` guide, rendered smooth; `photo` guides are the older client-side pixel treatment.
+- Provider: OpenRouter's Images API only (`src/lib/ai/portrait-provider.ts`), because Groq has no image output.
+  Default model `google/gemini-3.1-flash-lite-image`, fallback `google/gemini-2.5-flash-image`; `AI_IMAGE_MODEL`
+  overrides the primary. Both take a reference image and cost about four cents a portrait; none of OpenRouter's
+  image models are free.
+- Route rules: applicant session (401/403), PNG data URL under 1.5 MB, six requests per user per minute (429),
+  `maxDuration` 60s. `503 {offline: true}` when there is no `OPENROUTER_API_KEY` or `AI_PROVIDER=offline`; the
+  picker then shows the pixel slider and explains. `502` when both models fail; the picker offers a retry and lets
+  the applicant save the pixel version instead. See ADR 0006.
