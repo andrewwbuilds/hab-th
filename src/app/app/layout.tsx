@@ -5,12 +5,12 @@ import type { Command, NavItem } from "@/components/shell";
 import { requireRole } from "@/lib/data/profiles";
 import type { MyApplication } from "@/lib/data/types";
 import { STAGE_LABEL, stageFor } from "@/lib/pet/engine";
-import { STATUS_LABEL, TRACKS, TRACK_LABEL, type PetSpec } from "@/lib/types";
+import { STATUS_LABEL, TRACK_LABEL, type PetSpec } from "@/lib/types";
 import { ApplicantShell } from "./ApplicantShell";
 import { FocusedShell } from "./FocusedShell";
 import { loadApplicant } from "./applicant-data";
 import { firstApplication } from "./focus";
-import { applicationsByTrack, TRACK_ACTION_LABEL, trackAction, trackHref, trackNavItems } from "./applicant-nav";
+import { TRACK_ACTION_LABEL, trackAction, trackHref, trackNavItems } from "./applicant-nav";
 
 function RoadieMini({ pet }: { pet: PetSpec | null }) {
   const linkClass =
@@ -40,15 +40,13 @@ function RoadieMini({ pet }: { pet: PetSpec | null }) {
 }
 
 function commandsFor(pet: PetSpec | null, applications: MyApplication[]): Command[] {
-  const byTrack = applicationsByTrack(applications);
-  const trackCommands = TRACKS.map((track): Command => {
-    const application = byTrack.get(track);
+  const trackCommands = applications.map((application): Command => {
     const verb = TRACK_ACTION_LABEL[trackAction(application)];
     return {
-      id: `track-${track}`,
-      label: `${verb} ${TRACK_LABEL[track].toLowerCase()} application`,
-      hint: application ? STATUS_LABEL[application.status] : "Not started",
-      href: trackHref(track, application),
+      id: `track-${application.track}`,
+      label: `${verb} ${TRACK_LABEL[application.track].toLowerCase()} application`,
+      hint: STATUS_LABEL[application.status],
+      href: trackHref(application.track, application),
       group: "Applications",
     };
   });

@@ -101,6 +101,14 @@ export async function createDraft(track: Track): Promise<ActionResult<MyApplicat
   const existing = await getMyApplication(parsed.data);
   if (existing) return { ok: true, data: existing };
 
+  const { data: other } = await supabase
+    .from("applications")
+    .select("id")
+    .eq("user_id", user.id)
+    .neq("track", parsed.data)
+    .maybeSingle();
+  if (other) return { ok: false, error: "You can only apply to one track" };
+
   const { data, error } = await supabase
     .from("applications")
     .insert({ user_id: user.id, track: parsed.data })
@@ -193,7 +201,7 @@ export async function submitApplication(track: Track): Promise<ActionResult<MyAp
 }
 
 function sanitizeQuery(q: string): string {
-  return q.replace(/[,()%]/g, " ").trim();
+  return q.replace(/[,()%*]/g, " ").trim();
 }
 
 function sortItems(items: ApplicationListItem[], sort: ApplicationFilters["sort"]): ApplicationListItem[] {
@@ -224,7 +232,7 @@ export async function listApplications(filters: ApplicationFilters = {}): Promis
   if (status) query = query.eq("status", status);
   const needle = q ? sanitizeQuery(q) : "";
   if (needle) {
-    query = query.or(`full_name.ilike.%${needle}%,email.ilike.%${needle}%`, { referencedTable: "profiles" });
+    query = query.or(`full_name.ilike.*${needle}*,email.ilike.*${needle}*`, { referencedTable: "applicant" });
   }
   const { data } = await query;
   const rows = data ?? [];

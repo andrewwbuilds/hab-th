@@ -28,15 +28,16 @@ exporting `proxy()`; `next build` uses Turbopack; layouts can use `LayoutProps<"
   Organizer sign-ups (non-empty invite code) ignore the choice and land on `/org`. A safe `next` param wins over both.
   The `protect_profile_role` trigger blocks role changes from everyone except organizers and the service role.
 - `DEMO_LOGIN=1` shows one-click demo sign-in buttons on the sign-in page (uses `SEED_PASSWORD`).
-- `applications.track`: `hacker` | `judge` | `mentor` | `volunteer`. One application per (user, track).
-  Each track has its own form definition and its own grading rubric (see `src/lib/forms/tracks.ts`).
+- `applications.track`: `hacker` | `judge` | `mentor` | `volunteer`. One application per user, fixed to the track
+  chosen at sign-up — an applicant cannot start a second track. Each track has its own form definition and its
+  own grading rubric (see `src/lib/forms/tracks.ts`).
 
 ## Application lifecycle
 
 `status`: `draft` -> `submitted` -> `under_review` -> (`accepted` | `waitlisted` | `rejected`).
 
-- The first draft is created at sign-up for the chosen track. Any other track starts on first change of its form
-  (`createDraft` is idempotent over `unique(user_id, track)`). Drafts autosave (debounced server action on change,
+- The one draft is created at sign-up for the chosen track (`createDraft` is idempotent over `unique(user_id, track)`
+  and rejects any track other than the applicant's own). Drafts autosave (debounced server action on change,
   plus explicit Save). Choosing a guide is optional and never blocks the form.
 - Submit runs full zod validation server-side, sets `submitted_at`, status `submitted`. After submit the applicant can
   no longer edit (RLS enforces: applicants may update only while `status = 'draft'`).
@@ -78,8 +79,8 @@ Trigger `set_updated_at` on applications, reviews, pets.
 /                         landing: hero scene, how it works, tracks, guides, FAQ
 /sign-in  /sign-up        split layout: form on the left, pixel art on the right (actions in src/app/(auth)/actions.ts)
 /auth/sign-out            POST route handler
-/app                      applicant home: Roadie + application cards per track + statuses. During the first
-                          application it redirects to the walkthrough step (see below)
+/app                      applicant home: Roadie + their one application's status. While that application is
+                          still an untouched draft it redirects to the walkthrough step (see below)
 /app/roadie               guide picker (optional); `?next=<internal path>` returns there after saving and shows
                           a "Skip for now" link to it
 /app/apply/[track]        the application form for one track (draft autosave, submit); sign-up lands on
@@ -168,13 +169,13 @@ The UI is a faithful take on Linear's app (dark theme only for this deliverable)
   None of this applies inside the app.
 - Radius 6px on every control, including chips and icon buttons; never pills. 8px on panels. Borders 1px, never shadows except the command palette and popovers.
 - Layout: left sidebar 232px (workspace name, nav with icons, Roadie mini at bottom for applicants), 40px top bar with
-  breadcrumbs, content max-width 1040px for forms, full width for tables. The applicant sidebar lists only tracks
-  the applicant has started; new tracks begin from the home page.
-- First application: while an applicant has exactly one draft and nothing submitted, the shell drops the sidebar
-  (`src/app/app/FocusedShell.tsx`): a 48px bar with the wordmark, a two-step rail (pick a guide, the application),
-  the guide chip, and sign out. `/app` redirects to the current step. Once a guide is chosen, the form opens the
-  Roadie chat once per session with an introduction to the first open question (`walkthrough` on
-  `AssistantPanel`). Submitting, or starting a second track, brings back the full shell.
+  breadcrumbs, content max-width 1040px for forms, full width for tables. The applicant sidebar lists their one
+  track application.
+- First application: while the applicant's one application is still a draft and nothing has been submitted, the
+  shell drops the sidebar (`src/app/app/FocusedShell.tsx`): a 48px bar with the wordmark, a two-step rail (pick a
+  guide, the application), the guide chip, and sign out. `/app` redirects to the current step. Once a guide is
+  chosen, the form opens the Roadie chat once per session with an introduction to the first open question
+  (`walkthrough` on `AssistantPanel`). Submitting brings back the full shell.
 - Density: 32px row height in tables, 28px controls, 8px/12px/16px/24px spacing rhythm.
 - Keyboard: `Cmd/Ctrl+K` command palette everywhere; in the organizer list `j`/`k` move, `Enter` opens,
   `1..6` sets status filter; in the detail view `[`/`]` go to previous/next application.
