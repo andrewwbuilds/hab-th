@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { HalftoneSkyline } from "@/components/landing/HalftoneSkyline";
 import { PixelPortrait } from "@/components/pet/PixelPortrait";
 import { GUIDES } from "@/lib/pet/guides";
 
@@ -142,6 +143,7 @@ export function HowItWorks() {
               </h3>
               <p>{step.body}</p>
               <div className="encore-how-inline" aria-hidden>
+                <HalftoneSkyline className="encore-how-halftone" seed={70 + index} rise={0.5} />
                 <StepVisual index={index} />
               </div>
             </div>
@@ -151,6 +153,7 @@ export function HowItWorks() {
       <div className="encore-how-stage" aria-hidden>
         {STEPS.map((step, index) => (
           <div key={step.key} className="encore-how-frame" data-active={active === index}>
+            <HalftoneSkyline className="encore-how-halftone" seed={70 + index} rise={0.5} />
             <StepVisual index={index} />
           </div>
         ))}

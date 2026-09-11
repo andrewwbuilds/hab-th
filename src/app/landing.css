@@ -111,7 +111,7 @@
 .mock-track strong i{width:7px;height:7px;border-radius:50%}
 .mock-track span{font-size:12px;color:#8b8e9f}
 .mock-button{display:grid;place-items:center;height:32px;border-radius:6px;background:var(--color-accent);color:#fff;font-weight:500}
-.mock-guides{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%;max-width:470px}
+.mock-guides{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%;max-width:470px}
 .mock-guide{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 6px;border:1px solid #2b2d3a;border-radius:10px;background:#12131a;font-size:12px;color:#c9cbd8}
 .mock-guide[data-selected=true]{border-color:var(--color-accent);box-shadow:0 0 0 3px #5e6ad233}
 .mock-guide-draw{display:grid;place-items:center;width:84px;height:84px;border:1px dashed #3a3d52;border-radius:10px;font-size:22px;color:#8b93ea}
@@ -137,8 +137,9 @@
 .encore-how-step h3{font-size:clamp(28px,3vw,42px);line-height:1.1;letter-spacing:-.03em;font-weight:500;color:#f1f1f5;text-wrap:balance}
 .encore-how-step p{max-width:440px;margin-top:18px;font-size:15px;color:var(--landing-muted)}
 .encore-how-stage{position:sticky;top:calc(50vh - 220px);align-self:start;height:440px}
-.encore-how-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:32px;border:1px solid var(--line);border-radius:12px;background:radial-gradient(ellipse at 50% 100%,#5e6ad222,transparent 70%),#0e0f14;opacity:0;transform:translateY(12px);transition:opacity .35s ease,transform .35s ease}
+.encore-how-frame{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:32px;border:0;background:radial-gradient(ellipse at 50% 100%,#5e6ad222,transparent 70%),#0e0f14;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,20px 100%,0 calc(100% - 20px));opacity:0;transform:translateY(12px);transition:opacity .35s ease,transform .35s ease}
 .encore-how-frame[data-active=true]{opacity:1;transform:none}
+.encore-how-halftone{position:absolute;left:0;bottom:0;display:block;width:100%;height:55%}
 .encore-how-inline{display:none}
 
 .encore-feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:48px}
@@ -211,7 +212,7 @@
   .encore-problem-art{min-height:380px}
   .encore-how{grid-template-columns:1fr;gap:0}
   .encore-how-stage{display:none}
-  .encore-how-inline{display:flex;justify-content:center;margin-top:24px;padding:24px 16px;border:1px solid var(--line);border-radius:12px;background:#0e0f14}
+  .encore-how-inline{position:relative;overflow:hidden;display:flex;justify-content:center;margin-top:24px;padding:24px 16px;border:0;background:#0e0f14;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px))}
   .encore-how-step{min-height:0;padding:32px 0;opacity:1;grid-template-columns:48px minmax(0,1fr)}
   .encore-how-index{align-self:start;height:40px}
   .encore-feature-grid{grid-template-columns:1fr}
