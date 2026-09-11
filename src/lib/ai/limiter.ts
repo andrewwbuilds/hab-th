@@ -6,11 +6,12 @@ const calls = new Map<string, number[]>();
 /**
  * Sliding window per user, held in module memory. One instance per process, so a multi-instance
  * deploy needs a shared store; for this app a single Vercel region and a low ceiling are enough.
+ * Prefix the key (`portrait:<id>`) to give a costlier endpoint its own, smaller `limit`.
  */
-export function allowRequest(userId: string, now = Date.now()): boolean {
+export function allowRequest(userId: string, now = Date.now(), limit = LIMIT_PER_WINDOW): boolean {
   const since = now - LIMIT_WINDOW_MS;
   const recent = (calls.get(userId) ?? []).filter((at) => at > since);
-  if (recent.length >= LIMIT_PER_WINDOW) {
+  if (recent.length >= limit) {
     calls.set(userId, recent);
     return false;
   }

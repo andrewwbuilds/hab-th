@@ -2,6 +2,7 @@ import "server-only";
 import type { PetSpec } from "@/lib/types";
 import { fieldKeysOf, parseGuideResponse, type GuideInput, type GuideResponse } from "@/lib/ai/guide";
 import { resolveProvider, type ProviderConfig } from "@/lib/ai/config";
+import { openrouterHeaders, retryable } from "@/lib/ai/http";
 import { offlineGuide } from "@/lib/ai/offline";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 
@@ -56,11 +57,6 @@ interface ChatMessage {
 
 type Attempt = { ok: true; text: string } | { ok: false; reason: string; retry: boolean };
 
-/** Rate limits, server errors, timeouts and schema rejections are worth one more try on the fallback model. */
-function retryable(status: number): boolean {
-  return status === 400 || status === 408 || status === 429 || status >= 500;
-}
-
 function responseFormat(config: ProviderConfig): Record<string, unknown> {
   if (config.name === "groq") {
     return { type: "json_schema", json_schema: { name: "roadie_guide", strict: true, schema: GUIDE_JSON_SCHEMA } };
@@ -69,17 +65,8 @@ function responseFormat(config: ProviderConfig): Record<string, unknown> {
 }
 
 function headersFor(config: ProviderConfig): Record<string, string> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-    authorization: `Bearer ${config.apiKey}`,
-  };
-  if (config.name === "openrouter") {
-    headers["x-openrouter-title"] = "Encore";
-    headers["x-title"] = "Encore";
-    const site = process.env.NEXT_PUBLIC_SITE_URL;
-    if (site) headers["http-referer"] = site;
-  }
-  return headers;
+  if (config.name === "openrouter") return openrouterHeaders(config.apiKey);
+  return { "content-type": "application/json", authorization: `Bearer ${config.apiKey}` };
 }
 
 async function chat(config: ProviderConfig, model: string, messages: ChatMessage[], timeoutMs: number): Promise<Attempt> {

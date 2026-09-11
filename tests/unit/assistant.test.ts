@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveProvider } from "../../src/lib/ai/config";
+import { DEFAULT_IMAGE_MODELS, IMAGE_ENDPOINT, resolveImageProvider, resolveProvider } from "../../src/lib/ai/config";
 import { LIMIT_PER_WINDOW, LIMIT_WINDOW_MS, allowRequest, resetLimiter } from "../../src/lib/ai/limiter";
 import { fieldKeysOf, parseGuideResponse } from "../../src/lib/ai/guide";
 import { exampleFor, offlineGuide, pickField } from "../../src/lib/ai/offline";
+import { PORTRAIT_PROMPT, buildPortraitRequest, parsePortraitResponse } from "../../src/lib/ai/portrait";
 import { buildSystemPrompt } from "../../src/lib/ai/prompt";
 import { FORM_DEFINITIONS } from "../../src/lib/forms/tracks";
 
@@ -166,6 +167,62 @@ describe("allowRequest", () => {
     expect(allowRequest("a", start + LIMIT_PER_WINDOW)).toBe(false);
     expect(allowRequest("b", start)).toBe(true);
     expect(allowRequest("a", start + LIMIT_WINDOW_MS + 1)).toBe(true);
+  });
+
+  it("keeps a prefixed key on its own smaller limit", () => {
+    resetLimiter();
+    const start = 2_000_000;
+    for (let index = 0; index < 3; index += 1) expect(allowRequest("portrait:a", start + index, 3)).toBe(true);
+    expect(allowRequest("portrait:a", start + 3, 3)).toBe(false);
+    expect(allowRequest("a", start + 3)).toBe(true);
+  });
+});
+
+describe("resolveImageProvider", () => {
+  it("needs the OpenRouter key whatever answers the chat, and respects AI_PROVIDER=offline", () => {
+    expect(resolveImageProvider({})).toBeNull();
+    expect(resolveImageProvider({ GROQ_API_KEY: "g" })).toBeNull();
+    expect(resolveImageProvider({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "groq" })).toEqual({
+      apiKey: "o",
+      endpoint: IMAGE_ENDPOINT,
+      models: DEFAULT_IMAGE_MODELS,
+    });
+    expect(resolveImageProvider({ OPENROUTER_API_KEY: "o", AI_PROVIDER: "offline" })).toBeNull();
+  });
+
+  it("puts AI_IMAGE_MODEL first and keeps the default as the fallback", () => {
+    expect(resolveImageProvider({ OPENROUTER_API_KEY: "o", AI_IMAGE_MODEL: "custom/model" })?.models).toEqual([
+      "custom/model",
+      DEFAULT_IMAGE_MODELS[0],
+    ]);
+  });
+});
+
+describe("portrait request and response", () => {
+  it("sends the photo as a reference image with the house-style prompt", () => {
+    const body = buildPortraitRequest("m", "data:image/png;base64,AAAA", "user-1");
+    expect(body.model).toBe("m");
+    expect(body.prompt).toBe(PORTRAIT_PROMPT);
+    expect(body.input_references[0].image_url.url).toBe("data:image/png;base64,AAAA");
+    expect(body.aspect_ratio).toBe("1:1");
+    expect(body.user).toBe("user-1");
+  });
+
+  it("turns the first image into a data URL and rejects anything else", () => {
+    expect(parsePortraitResponse({ data: [{ b64_json: "AAAA", media_type: "image/png" }] })).toBe(
+      "data:image/png;base64,AAAA",
+    );
+    expect(parsePortraitResponse({ data: [{ b64_json: "AAAA" }] })).toBe("data:image/png;base64,AAAA");
+    expect(parsePortraitResponse({ data: [{ b64_json: "AAAA", media_type: "image/webp" }] })).toBe(
+      "data:image/webp;base64,AAAA",
+    );
+    expect(parsePortraitResponse({ data: [{ b64_json: "AAAA", media_type: "image/svg+xml" }] })).toBe(
+      "data:image/png;base64,AAAA",
+    );
+    expect(parsePortraitResponse({ data: [{ b64_json: "not base64!" }] })).toBeUndefined();
+    expect(parsePortraitResponse({ data: [] })).toBeUndefined();
+    expect(parsePortraitResponse({ error: { message: "nope" } })).toBeUndefined();
+    expect(parsePortraitResponse("text")).toBeUndefined();
   });
 });
 
