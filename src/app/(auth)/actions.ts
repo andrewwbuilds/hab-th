@@ -15,6 +15,8 @@ export interface AuthFormState {
   fieldErrors?: Record<string, string>;
   /** Submitted non-secret values, echoed back so the form keeps them after a failed attempt. */
   values?: Record<string, string>;
+  /** Set when Supabase wants this address confirmed before the user can sign in. */
+  confirmEmail?: string;
 }
 
 const emailSchema = z.email("Enter a valid email address");
@@ -60,6 +62,7 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  if (error?.code === "email_not_confirmed") return { confirmEmail: values.email, values };
   if (error || !data.user) {
     return { error: "That email and password do not match", values };
   }
@@ -85,7 +88,7 @@ async function createAccount(
   email: string,
   password: string,
   fullName: string,
-): Promise<{ userId: string } | { taken: true } | { error: string }> {
+): Promise<{ userId: string } | { taken: true } | { confirm: true } | { error: string }> {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const { data, error } = await createAdminClient().auth.admin.createUser({
       email,
@@ -108,7 +111,7 @@ async function createAccount(
   const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
   if (error) return isTaken(error.message) ? { taken: true } : { error: error.message };
   if (!data.user || data.user.identities?.length === 0) return { taken: true };
-  if (!data.session) return { error: "Check your email to confirm your account, then sign in." };
+  if (!data.session) return { confirm: true };
   return { userId: data.user.id };
 }
 
@@ -136,6 +139,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   if ("taken" in account) {
     return { fieldErrors: { email: "An account with this email already exists" }, values };
   }
+  if ("confirm" in account) return { confirmEmail: email, values };
   if ("error" in account) return { error: account.error, values };
 
   const next = safeInternalPath(text(formData, "next"));
