@@ -40,7 +40,20 @@ const variantIcon: Record<ToastVariant, ReactNode> = {
   error: <CircleAlert className="size-4 text-danger" />,
 };
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export type ToastPlacement = "bottom-left" | "bottom-right";
+
+const placementClass: Record<ToastPlacement, string> = {
+  "bottom-left": "left-4",
+  "bottom-right": "right-4",
+};
+
+export function ToastProvider({
+  children,
+  placement = "bottom-left",
+}: {
+  children: ReactNode;
+  placement?: ToastPlacement;
+}) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const nextId = useRef(1);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -70,7 +83,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 left-4 z-50 flex w-[320px] flex-col gap-2"
+        className={cn(
+          "pointer-events-none fixed bottom-4 z-50 flex w-[320px] flex-col gap-2",
+          placementClass[placement],
+        )}
       >
         {toasts.map((item) => (
           <div
