@@ -7,7 +7,7 @@ import { Button, Kbd, Spinner, cn, controlClass, useToast } from "@/components/u
 import type { GuideAction, GuideMessage, GuideResponse } from "@/lib/ai/guide";
 import type { Answers, AnswerValue } from "@/lib/forms/schema";
 import type { FieldDef, FormDefinition } from "@/lib/forms/tracks";
-import type { Track } from "@/lib/types";
+import { TRACK_LABEL, type Track } from "@/lib/types";
 import { ASSISTANT_OPEN_ATTRIBUTE, ASSISTANT_OPEN_EVENT } from "./events";
 
 const HIGHLIGHT_MS = 2000;
@@ -36,6 +36,8 @@ export interface AssistantPanelProps {
   getFocusedFieldKey: () => string | undefined;
   setAnswer: (key: string, value: AnswerValue) => void;
   scrollToField: (key: string) => void;
+  /** Opens the panel once per track with an introduction to the first open question. */
+  walkthrough?: { fieldKey?: string };
 }
 
 interface ChatEntry extends GuideMessage {
@@ -95,6 +97,17 @@ function greeting(name: string | undefined, field: FieldDef | undefined): string
   return `${who} here. Ask me about ${about}. I can point to a field, give an example, or explain a question.`;
 }
 
+function walkthroughIntro(name: string | undefined, label: string, field: FieldDef | undefined, voice: boolean): string {
+  const who = name ?? "Your Roadie";
+  const ask = voice ? "Type here, or press the mic and just talk." : "Type here whenever you want.";
+  const first = field ? ` First up: "${field.label}".` : "";
+  return `${who} here. I'll walk you through the ${label} application one question at a time.${first} Ask me what a question means or what a good answer looks like. ${ask}`;
+}
+
+function walkthroughKey(track: Track): string {
+  return `encore:walkthrough:${track}`;
+}
+
 function speechConstructor(): SpeechRecognitionConstructor | undefined {
   if (typeof window === "undefined") return undefined;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -107,6 +120,7 @@ export function AssistantPanel({
   getFocusedFieldKey,
   setAnswer,
   scrollToField,
+  walkthrough,
 }: AssistantPanelProps) {
   const { spec, mood } = useRoadie();
   const { toast } = useToast();
@@ -200,6 +214,29 @@ export function AssistantPanel({
       window.removeEventListener(ASSISTANT_OPEN_EVENT, onOpen);
     };
   }, [open, close, openPanel]);
+
+  const walkthroughStarted = useRef(false);
+  useEffect(() => {
+    if (!walkthrough || walkthroughStarted.current) return;
+    walkthroughStarted.current = true;
+    try {
+      if (window.sessionStorage.getItem(walkthroughKey(track))) return;
+      window.sessionStorage.setItem(walkthroughKey(track), "1");
+    } catch {
+      // Storage unavailable: the walkthrough opens on every visit to the form instead of once.
+    }
+    const field = findField(definition, walkthrough.fieldKey);
+    setEntries([
+      {
+        id: nextId.current++,
+        role: "assistant",
+        content: walkthroughIntro(name, TRACK_LABEL[track].toLowerCase(), field, speechSupported),
+        action: field ? { type: "clarify", fieldKey: field.key, text: field.hint } : undefined,
+      },
+    ]);
+    setOpen(true);
+    if (field) highlight(field.key);
+  }, [walkthrough, track, definition, name, speechSupported, highlight]);
 
   useEffect(() => {
     if (!open) return;

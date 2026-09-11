@@ -8,6 +8,8 @@ the application lifecycle, the data model, routes, the Roadie pet rules, and the
 ## Layout
 
 - `src/app/` routes: `(auth)` sign-in/up, `app/` applicant, `org/` organizer, `auth/sign-out` route handler.
+  `app/focus.ts` decides when the applicant is on their first application; `app/FocusedShell.tsx` is the
+  sidebar-free shell used then.
 - `src/lib/data/` all Supabase access and server actions. Nothing else imports the Supabase client directly.
 - `src/lib/forms/tracks.ts` questions and rubric per track; `src/lib/forms/schema.ts` zod + completion helpers.
 - `src/lib/pet/` Roadie derivation, names, voice. `src/components/pet/` sprite, dock, quiz, card.

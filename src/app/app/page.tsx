@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { RoadieCard } from "@/components/pet";
 import { Button, Card, StatusIcon, cn } from "@/components/ui";
@@ -8,6 +9,7 @@ import type { MyApplication } from "@/lib/data/types";
 import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
 import { STATUS_LABEL, TRACKS, TRACK_LABEL, type Track } from "@/lib/types";
 import { RoadieScreen } from "./RoadieScreen";
+import { firstApplication, onboardingPath } from "./focus";
 import { loadApplicant } from "./applicant-data";
 import {
   applicationsByTrack,
@@ -82,6 +84,8 @@ function TrackList({ applications, disabled }: { applications: MyApplication[]; 
 export default async function ApplicantHomePage() {
   const user = await requireRole("applicant");
   const [pet, applications] = await loadApplicant();
+  const first = firstApplication(applications);
+  if (first) redirect(onboardingPath(pet, first.track));
   const firstName = user.full_name.trim().split(/\s+/)[0] || "there";
 
   return (

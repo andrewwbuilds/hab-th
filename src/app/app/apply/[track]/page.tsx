@@ -7,6 +7,7 @@ import { applyPath, roadiePath } from "@/lib/navigation";
 import { isTrack, TRACK_LABEL } from "@/lib/types";
 import { loadApplicant } from "../../applicant-data";
 import { applicationsByTrack } from "../../applicant-nav";
+import { firstApplication } from "../../focus";
 import { ApplicationForm } from "./ApplicationForm";
 
 interface ApplyPageProps {
@@ -46,6 +47,7 @@ export default async function ApplyPage({ params }: ApplyPageProps) {
         track={track}
         definition={definition}
         initialAnswers={application?.answers ?? {}}
+        walkthrough={pet !== null && firstApplication(applications) !== null}
       />
     </>
   );

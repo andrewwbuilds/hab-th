@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createDraft } from "@/lib/data/applications";
 import { getProfile, HOME_BY_ROLE } from "@/lib/data/profiles";
-import { applyPath, safeInternalPath } from "@/lib/navigation";
+import { applyPath, roadiePath, safeInternalPath } from "@/lib/navigation";
 import { TRACKS, type Role } from "@/lib/types";
 
 export interface AuthFormState {
@@ -123,5 +123,5 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
 
   // The form autosaves a draft on first change, so a failure here only costs the head start.
   await createDraft(track);
-  redirect(next ?? applyPath(track));
+  redirect(next ?? roadiePath(applyPath(track)));
 }

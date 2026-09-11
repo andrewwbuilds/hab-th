@@ -39,6 +39,8 @@ export interface ApplicationFormProps {
   track: Track;
   definition: FormDefinition;
   initialAnswers: Answers;
+  /** First application with a guide chosen: the Roadie opens the chat and introduces the first question. */
+  walkthrough?: boolean;
 }
 
 function textValue(value: AnswerValue | undefined): string {
@@ -240,7 +242,7 @@ function SaveIndicator({ state }: { state: SaveState }) {
   );
 }
 
-export function ApplicationForm({ track, definition, initialAnswers }: ApplicationFormProps) {
+export function ApplicationForm({ track, definition, initialAnswers, walkthrough = false }: ApplicationFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { setContext: setRoadieContext, setMood: setRoadieMood } = useRoadie();
@@ -531,6 +533,7 @@ export function ApplicationForm({ track, definition, initialAnswers }: Applicati
         getFocusedFieldKey={focusedFieldKey}
         setAnswer={setAnswer}
         scrollToField={scrollToField}
+        walkthrough={walkthrough ? { fieldKey: completion.requiredMissing[0] } : undefined}
       />
     </div>
   );

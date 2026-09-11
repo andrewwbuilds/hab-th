@@ -7,7 +7,9 @@ import type { MyApplication } from "@/lib/data/types";
 import { STAGE_LABEL, stageFor } from "@/lib/pet/engine";
 import { STATUS_LABEL, TRACKS, TRACK_LABEL, type PetSpec } from "@/lib/types";
 import { ApplicantShell } from "./ApplicantShell";
+import { FocusedShell } from "./FocusedShell";
 import { loadApplicant } from "./applicant-data";
+import { firstApplication } from "./focus";
 import { applicationsByTrack, TRACK_ACTION_LABEL, trackAction, trackHref, trackNavItems } from "./applicant-nav";
 
 function RoadieMini({ pet }: { pet: PetSpec | null }) {
@@ -65,6 +67,18 @@ function commandsFor(pet: PetSpec | null, applications: MyApplication[]): Comman
 export default async function ApplicantLayout({ children }: { children: ReactNode }) {
   const user = await requireRole("applicant");
   const [pet, applications] = await loadApplicant();
+
+  const first = firstApplication(applications);
+  if (first) {
+    return (
+      <RoadieProvider spec={pet}>
+        <FocusedShell track={first.track} pet={pet} user={{ name: user.full_name, email: user.email }}>
+          {children}
+        </FocusedShell>
+        <RoadieDock />
+      </RoadieProvider>
+    );
+  }
 
   const nav: NavItem[] = [
     { href: "/app", label: "Home", icon: "home", exact: true },

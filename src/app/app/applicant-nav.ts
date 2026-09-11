@@ -30,16 +30,20 @@ export function applicationsByTrack(applications: MyApplication[]): Map<Track, M
   return new Map(applications.map((application) => [application.track, application]));
 }
 
+/** Only tracks the applicant has started. New tracks begin from the home page, not the sidebar. */
 export function trackNavItems(applications: MyApplication[]): NavItem[] {
   const byTrack = applicationsByTrack(applications);
-  return TRACKS.map((track) => {
+  return TRACKS.flatMap((track) => {
     const application = byTrack.get(track);
-    return {
-      href: trackHref(track, application),
-      label: `Apply as ${TRACK_LABEL[track].toLowerCase()}`,
-      icon: TRACK_ICON[track],
-      badge: application ? STATUS_LABEL[application.status] : undefined,
-    };
+    if (!application) return [];
+    return [
+      {
+        href: trackHref(track, application),
+        label: `${TRACK_LABEL[track]} application`,
+        icon: TRACK_ICON[track],
+        badge: STATUS_LABEL[application.status],
+      },
+    ];
   });
 }
 

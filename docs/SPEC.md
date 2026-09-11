@@ -78,10 +78,12 @@ Trigger `set_updated_at` on applications, reviews, pets.
 /                         landing: hero scene, how it works, tracks, guides, FAQ
 /sign-in  /sign-up        split layout: form on the left, pixel art on the right (actions in src/app/(auth)/actions.ts)
 /auth/sign-out            POST route handler
-/app                      applicant home: Roadie + application cards per track + statuses
-/app/roadie               guide picker (optional); `?next=<internal path>` returns there after saving
-/app/apply/[track]        the application form for one track (draft autosave, submit); sign-up lands here.
-                          Without a guide the page shows one line linking to /app/roadie?next=/app/apply/<track>
+/app                      applicant home: Roadie + application cards per track + statuses. During the first
+                          application it redirects to the walkthrough step (see below)
+/app/roadie               guide picker (optional); `?next=<internal path>` returns there after saving and shows
+                          a "Skip for now" link to it
+/app/apply/[track]        the application form for one track (draft autosave, submit); sign-up lands on
+                          /app/roadie?next=/app/apply/<track>. Without a guide the page shows one line linking there
 /app/status/[track]       read-only view of a submitted application + decision
 /org                      organizer dashboard: counts by track/status, recent activity
 /org/applications         list of all applications: table with filters (track, status), sort, search, keyboard nav
@@ -166,7 +168,13 @@ The UI is a faithful take on Linear's app (dark theme only for this deliverable)
   None of this applies inside the app.
 - Radius 6px on every control, including chips and icon buttons; never pills. 8px on panels. Borders 1px, never shadows except the command palette and popovers.
 - Layout: left sidebar 232px (workspace name, nav with icons, Roadie mini at bottom for applicants), 40px top bar with
-  breadcrumbs, content max-width 1040px for forms, full width for tables.
+  breadcrumbs, content max-width 1040px for forms, full width for tables. The applicant sidebar lists only tracks
+  the applicant has started; new tracks begin from the home page.
+- First application: while an applicant has exactly one draft and nothing submitted, the shell drops the sidebar
+  (`src/app/app/FocusedShell.tsx`): a 48px bar with the wordmark, a two-step rail (pick a guide, the application),
+  the guide chip, and sign out. `/app` redirects to the current step. Once a guide is chosen, the form opens the
+  Roadie chat once per session with an introduction to the first open question (`walkthrough` on
+  `AssistantPanel`). Submitting, or starting a second track, brings back the full shell.
 - Density: 32px row height in tables, 28px controls, 8px/12px/16px/24px spacing rhythm.
 - Keyboard: `Cmd/Ctrl+K` command palette everywhere; in the organizer list `j`/`k` move, `Enter` opens,
   `1..6` sets status filter; in the detail view `[`/`]` go to previous/next application.
