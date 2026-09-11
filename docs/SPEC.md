@@ -75,8 +75,8 @@ Trigger `set_updated_at` on applications, reviews, pets.
 ## Routes
 
 ```
-/                         landing (marketing hero + sign in / create account)
-/sign-in  /sign-up        auth forms (server actions in src/app/(auth)/actions.ts)
+/                         landing: hero scene, how it works, tracks, guides, FAQ
+/sign-in  /sign-up        split layout: form on the left, pixel art on the right (actions in src/app/(auth)/actions.ts)
 /auth/sign-out            POST route handler
 /app                      applicant home: Roadie + application cards per track + statuses
 /app/roadie               guide picker (optional); `?next=<internal path>` returns there after saving
@@ -161,6 +161,9 @@ The UI is a faithful take on Linear's app (dark theme only for this deliverable)
   accepted `#4cb782`, waitlisted `#f2994a`, rejected `#eb5757`.
 - Type: Inter via `next/font/google`. Base 13px / 20px line-height; table rows 13px; labels 12px; page titles 15px
   medium; hero (landing only) 40px semibold tight. Weights 400/500/600 only. No all-caps labels.
+- Landing exception: `src/app/landing.css` pairs Aleo light (serif) with Inter in headings, uses notched mono
+  uppercase buttons, and draws a halftone skyline on canvas. The layout borrows from the Twenty landing page.
+  None of this applies inside the app.
 - Radius 6px on controls, 8px on panels. Borders 1px, never shadows except the command palette and popovers.
 - Layout: left sidebar 232px (workspace name, nav with icons, Roadie mini at bottom for applicants), 40px top bar with
   breadcrumbs, content max-width 1040px for forms, full width for tables.
