@@ -81,10 +81,15 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 ## Roadie assistant
 
 On the application form, Cmd/Ctrl+J (or the "Ask <name>" button under the Roadie) opens a chat with the applicant's
-Roadie. It opens by listing the quick answers it can fill (school, year, links, sizes, skills, availability, and so
-on) and says the essays stay yours. Tell it about yourself, typed or spoken, and it writes those answers into the
-form at once, shows what it set, and offers Undo. Ask where a field is, what a question means, or for an example
-and it highlights, clarifies, or shows an example with a "Use this" button.
+Roadie. It asks one question at a time, in form order, optional fields included, and reads each reply as the
+answer to that question, so "he him" lands as he/him and "github dot com slash aw" as a link. Say skip to pass an
+optional one. It writes answers into the form at once, shows what it set, and offers Undo. Ask where a field is,
+what a question means, or for an example and it highlights, clarifies, or shows an example with a "Use this"
+button.
+
+Upload a resume with the paperclip (PDF or text) and the Roadie fills every quick answer the resume supports,
+then lists essay ideas drawn from it: a project, a role, a result, each with a one-line angle. Ideas are pointers,
+never drafts. The walk-through picks up at the first field the resume left empty.
 
 Voice is the browser's Web Speech API, so there is no audio cost and the buttons hide when the browser lacks it.
 The mic button takes one message. **Talk live** keeps the mic open, collects what you say in the input box, and
@@ -93,8 +98,9 @@ answers to a sentence or two.
 
 Essays are guarded on both sides. Fields marked `essay: true` in `src/lib/forms/tracks.ts` are never filled, an
 example the model offers for one is replaced server-side with the field hint and a "yours to write" line, and the
-prompt tells the model to decline and ask questions that draw the answer out instead. See
-`docs/decisions/0007-roadie-fills-quick-answers-never-essays.md`.
+prompt tells the model to decline and ask questions that draw the answer out instead. Resume topics are capped
+and trimmed so a paragraph cannot hide in one. See `docs/decisions/0007-roadie-fills-quick-answers-never-essays.md`
+and `docs/decisions/0008-walk-through-and-resume-upload.md`.
 
 `src/app/api/assistant/route.ts` checks the applicant session, validates the body, and calls `src/lib/ai/provider.ts`,
 which talks to Groq or OpenRouter with plain `fetch` and JSON output, retries once on a fallback model, and then falls

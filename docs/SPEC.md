@@ -229,10 +229,27 @@ It never writes an essay.
 
 - Open: Cmd/Ctrl+J toggles the panel; Escape closes it. The RoadieDock shows an "Ask <name> ⌘J" button on the form.
   Opening the panel keeps the field the applicant was in as context.
-- Intro: the first message (walkthrough or first open) lists the quick answers still empty that the Roadie can fill
-  from conversation and says the written answers stay the applicant's (`fillIntro` in `src/lib/ai/fill.ts`). A
-  "Quick answers I can fill" strip under the header shows n/total with a chip per field, ticked once answered;
-  clicking a chip scrolls to the field.
+- Intro: the first message (walkthrough or first open) says the Roadie asks one question at a time, points at the
+  resume upload, lists the quick answers still empty (`fillIntro` in `src/lib/ai/fill.ts`), says the written
+  answers stay the applicant's, and asks the first question. A "Quick answers I can fill" strip under the header
+  shows n/total with a chip per field, ticked once answered; clicking a chip scrolls to the field.
+- Walk-through: the Roadie asks one field at a time in form order, every empty fillable field, required and
+  optional alike, then each empty essay (`nextQuestion` and `askLine` in `src/lib/ai/offline.ts`). Each reply
+  carries `ask {fieldKey}`, the field the message asks about; the panel sends it back as `asking` with the next
+  message and keeps an `asked` list so a "no" on a checkbox or a skipped optional field is not asked again. The
+  reply to a question is read as that field's answer (`answerFor`: pronouns as words like "he him" become he/him,
+  "github dot com slash aw" becomes a URL, a year inside a sentence, option labels, lead-ins like "I go to"
+  stripped) unless it is clearly a question; "skip" moves on; an unmappable reply gets one re-ask. Essays are
+  never filled from a reply.
+- Resume: the paperclip button (or the "Upload resume" chip) sends a PDF or text file to `POST /api/resume` as
+  form data with `track` and `answers`. The server extracts the text (`unpdf` for PDF, at most 12k characters,
+  5 MB), asks the model for every fillable field the resume supports plus up to three essay topics per essay,
+  and returns `{message, action: fill, topics: [{fieldKey, title, angle}], ask}`. Topics are pointers at things
+  on the resume, never drafts; `sanitizeTopics` keeps only essay keys, trims each to 160 characters, and caps
+  three per essay. The message is written server-side (`summariseResume`). The panel shows the fill card with
+  Undo and an "Essay ideas from your resume" card grouped by question; the walk-through resumes at the first
+  field the resume left empty. Without a model, `offlineResume` reads links, the latest year, and option labels
+  with the regex extractor and offers capitalised title lines as topics. 6 uploads per user per minute.
 - Input: typed (Enter sends, Shift+Enter is a newline), one spoken message (mic button), or **Talk live**: the mic
   stays open (continuous Web Speech recognition), finished utterances collect in the input box, and the whole
   statement is sent 1.4 seconds after the applicant stops talking, so one breath is one message and one fill.
@@ -240,14 +257,14 @@ It never writes an essay.
   hidden when the browser lacks recognition.
 - Voice of the guide: direct. One or two short sentences, no greeting, no praise, no filler. The pet's tone is a
   single word of flavour in the prompt; the brevity rules win. After a fill the message is the fields set, then the
-  next empty field as a question.
+  next question with its options.
 - Essays: a field with `essay: true` in `src/lib/forms/tracks.ts` (the long "tell us about" answers on every track)
   is never filled. Server side, `parseGuideResponse` drops fills for essay keys and turns an `example` on an essay
   into `clarify` with the field hint plus a fixed "yours to write" line, so a model draft never reaches the
   browser. The prompt tells the model to decline and ask two or three drawing-out questions instead. Client side,
   "Use this" is never offered on an essay and fill actions skip essay keys again.
-- Contract: `POST /api/assistant` with `{track, fieldKey?, answers, messages}` returns
-  `{message, action?}` where `action` is `highlight {fieldKey}`, `example {fieldKey, text}`,
+- Contract: `POST /api/assistant` with `{track, fieldKey?, asking?, asked, answers, messages}` returns
+  `{message, action?, ask?}` where `action` is `highlight {fieldKey}`, `example {fieldKey, text}`,
   `clarify {fieldKey?, text}`, or `fill {fields: [{fieldKey, value}]}`. Field keys not in the track definition are
   dropped; fill values are coerced to the field type (`coerceFill`: option value or label for selects, comma lists
   for multiselects, integer in range for numbers, https URL for links, yes/no words for checkboxes) and dropped
