@@ -73,6 +73,45 @@ function inviteCodeMatches(inviteCode: string, configuredCode: string | undefine
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+const isTaken = (message: string) => /already|exists/i.test(message);
+
+/**
+ * With the service-role key, the user is created pre-confirmed and signed in, so sign-up works even when the
+ * project has "Confirm email" on. Without it, fall back to a plain sign-up, which only returns a session when
+ * confirmations are off.
+ */
+async function createAccount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  email: string,
+  password: string,
+  fullName: string,
+): Promise<{ userId: string } | { taken: true } | { error: string }> {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { data, error } = await createAdminClient().auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    });
+    if (error || !data.user) {
+      return error?.code === "email_exists" || isTaken(error?.message ?? "")
+        ? { taken: true }
+        : { error: error?.message ?? "Could not create your account. Try again." };
+    }
+    const signedIn = await supabase.auth.signInWithPassword({ email, password });
+    if (signedIn.error || !signedIn.data.user) {
+      return { error: "Account created, but we could not sign you in. Try signing in." };
+    }
+    return { userId: signedIn.data.user.id };
+  }
+
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
+  if (error) return isTaken(error.message) ? { taken: true } : { error: error.message };
+  if (!data.user || data.user.identities?.length === 0) return { taken: true };
+  if (!data.session) return { error: "Check your email to confirm your account, then sign in." };
+  return { userId: data.user.id };
+}
+
 export async function signUp(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const values = {
     fullName: text(formData, "fullName"),
@@ -88,33 +127,23 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   if (wantsOrganizer && !inviteCodeMatches(inviteCode, process.env.ORGANIZER_INVITE_CODE)) {
     return { fieldErrors: { inviteCode: "That invite code is not valid" }, values };
   }
-
-  // Created pre-confirmed so sign-up works even when the project has "Confirm email" on.
-  const { data: created, error: createError } = await createAdminClient().auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName },
-  });
-  if (createError || !created.user) {
-    const taken = createError?.code === "email_exists" || /already|exists/i.test(createError?.message ?? "");
-    return taken
-      ? { fieldErrors: { email: "An account with this email already exists" }, values }
-      : { error: createError?.message ?? "Could not create your account. Try again.", values };
+  if (wantsOrganizer && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { error: "Organizer sign-up is not configured on this server.", values };
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.user) {
-    return { error: "Account created, but we could not sign you in. Try signing in.", values };
+  const account = await createAccount(supabase, email, password, fullName);
+  if ("taken" in account) {
+    return { fieldErrors: { email: "An account with this email already exists" }, values };
   }
+  if ("error" in account) return { error: account.error, values };
 
   const next = safeInternalPath(text(formData, "next"));
   if (wantsOrganizer) {
     const { error: grantError } = await createAdminClient()
       .from("profiles")
       .update({ role: "organizer" })
-      .eq("id", data.user.id);
+      .eq("id", account.userId);
     if (grantError) {
       await supabase.auth.signOut();
       return { error: "Could not grant organizer access. Try again.", values };
