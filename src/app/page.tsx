@@ -58,11 +58,6 @@ export default async function LandingPage() {
             <br />
             worth staying up for.
           </h1>
-          <p>
-            A weekend for the idea in your notes app.
-            <br />
-            And the people who’ll help you bring it to life.
-          </p>
           <div className="encore-actions">
             <Link href="/sign-up" className="encore-button">
               Start your application <ArrowUpRight size={16} />
