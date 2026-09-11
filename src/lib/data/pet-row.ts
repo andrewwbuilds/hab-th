@@ -21,9 +21,9 @@ const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const paletteSchema = z.object({ primary: hex, secondary: hex, accent: hex });
 
 export const guideSchema = z.object({
-  kind: z.enum(["eddy", "gary", "eric", "drawing", "photo"]),
+  kind: z.enum(["eddy", "gary", "eric", "drawing", "photo", "portrait"]),
   image: z.string().max(400_000).regex(/^(\/guides\/(eddy|gary|eric)\.png|data:image\/png;base64,[A-Za-z0-9+/=]+)$/),
-}).refine((guide) => ["drawing", "photo"].includes(guide.kind)
+}).refine((guide) => ["drawing", "photo", "portrait"].includes(guide.kind)
   ? guide.image.startsWith("data:image/png;base64,")
   : guide.image === `/guides/${guide.kind}.png`, "Invalid guide image");
 

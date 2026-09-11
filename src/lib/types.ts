@@ -117,7 +117,8 @@ export interface PetPalette {
 }
 
 export interface PetTraits {
-  guide?: { kind: "eddy" | "gary" | "eric" | "drawing" | "photo"; image: string };
+  /** `photo` is the client-side pixel treatment; `portrait` is the same selfie redrawn by an image model. */
+  guide?: { kind: "eddy" | "gary" | "eric" | "drawing" | "photo" | "portrait"; image: string };
   tone: Tone;
   chattiness: Chattiness;
   accessory: Accessory;

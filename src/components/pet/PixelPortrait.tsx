@@ -1,15 +1,26 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { PetSpec } from "@/lib/types";
 
-interface PortraitProps { src: string; name: string; size?: number; resolution?: number; className?: string }
+type GuideKind = NonNullable<PetSpec["traits"]["guide"]>["kind"];
 
-/** Stable guide paths also identify accounts saved before the illustrated artwork. */
+interface PortraitProps { src: string; name: string; size?: number; resolution?: number; className?: string; kind?: GuideKind }
+
+/**
+ * Stable guide paths also identify accounts saved before the illustrated artwork. Model-drawn `portrait`
+ * guides render smooth; drawings and pixel photos go through the pixelating canvas.
+ */
 export function PixelPortrait(props: PortraitProps) {
   const character = /^\/guides\/(eddy|gary|eric)\.png$/.exec(props.src)?.[1];
   if (character) {
     const position = character === "eddy" ? "0%" : character === "gary" ? "50%" : "100%";
     return <span role="img" aria-label={props.name} className={`illustrated-guide ${props.className ?? ""}`} style={{ display: "block", flexShrink: 0, width: props.size ?? 96, height: props.size ?? 96, borderRadius: 10, backgroundImage: "url(/art/encore-guides.png)", backgroundSize: "300% 100%", backgroundPosition: `${position} center`, backgroundRepeat: "no-repeat" }} />;
+  }
+  if (props.kind === "portrait") {
+    // Data URL from the applicant's own row; next/image has nothing to optimise here.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={props.src} alt={props.name} className={props.className} style={{ display: "block", flexShrink: 0, width: props.size ?? 96, height: props.size ?? 96, borderRadius: 12, objectFit: "cover" }} />;
   }
   return <CustomPixelPortrait {...props} />;
 }

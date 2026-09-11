@@ -10,6 +10,11 @@ describe("saved guides", () => {
     expect(guideSchema.safeParse({ kind: "photo", image: "https://example.com/photo.png" }).success).toBe(false);
     expect(guideSchema.safeParse({ kind: "photo", image: "data:image/svg+xml;base64,AAAA" }).success).toBe(false);
   });
+  it("accepts model-drawn portraits only as PNG data URLs", () => {
+    expect(guideSchema.safeParse({ kind: "portrait", image: "data:image/png;base64,AAAA" }).success).toBe(true);
+    expect(guideSchema.safeParse({ kind: "portrait", image: "/guides/eddy.png" }).success).toBe(false);
+    expect(guideSchema.safeParse({ kind: "portrait", image: "https://example.com/p.png" }).success).toBe(false);
+  });
   it("retains custom portraits when traits are read and experience is awarded", () => {
     const base = derivePet({ genres: ["indie"], energy: 3, mood: 4, era: "20s", hoursPerDay: "1to3", discovery: "friends", topArtist: "Test", anthem: "" });
     const guide = { kind: "drawing" as const, image: "data:image/png;base64,AAAA" };
