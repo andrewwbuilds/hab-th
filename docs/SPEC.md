@@ -276,12 +276,19 @@ It never writes an essay.
   clarify renders the text and highlights the field when one is named; fill writes every value through the form's
   `setAnswer` (so autosave runs), shows a card listing label and value per field, and offers Undo, which restores
   the previous values.
-- Providers: `src/lib/ai/provider.ts` calls Groq (`openai/gpt-oss-120b`, then `qwen/qwen3.8-27b`) or OpenRouter
-  (`google/gemma-4-31b-it:free`, then `nex-agi/nex-n2.5-pro:free`, then `poolside/laguna-s-2.1:free`) with JSON
-  output. `AI_PROVIDER` picks the primary and `AI_MODEL` the first model on it. Every model of the primary is tried,
-  then every model of the other provider when it has a key (`resolveProviders`), then the offline guide answers.
+- Providers: `src/lib/ai/provider.ts` calls OpenRouter (`google/gemini-2.5-flash-lite`, paid, about a twentieth
+  of a cent per resume, then the free `google/gemma-4-31b-it`, `nex-agi/nex-n2.5-pro`, `poolside/laguna-s-2.1`)
+  or Groq (`openai/gpt-oss-120b`, then `qwen/qwen3.8-27b`) with JSON output. `AI_PROVIDER` names the one
+  provider to use and `AI_MODEL` the first model on it; with `AI_PROVIDER` unset, the other keyed provider is
+  tried after the first (`resolveProviders`). Every model in the chain is tried, then the offline guide answers.
   A rate-limited model fails in under a second. Replies longer than 320 characters are clipped at a sentence end,
-  since that length means a model wrote its reasoning into the message.
+  since that length means a model wrote its reasoning into the message. Pronouns are written as a slash set
+  whatever the model sent. Two guards sit behind the model in the walk-through: "skip" on the asked field is
+  answered without a model, and when the model talks about setting the asked field but sends no fill, or the
+  field takes an option, year, link, or yes/no that `answerFor` reads strictly, the server writes the fill and
+  moves to the next question (`reinforceAskedAnswer`). Resume fills keep only what the resume backs up
+  (`evidencedFills`): an option whose label appears in the text, a year that appears, a link whose host appears,
+  a ticked checkbox; free text such as the school is trusted.
 - Offline guide: `src/lib/ai/offline.ts` needs no key or network. A statement (no question mark or question word)
   goes through `extractFills`: links by host, a year for the number field that accepts it, pronouns, option labels
   and values for selects, "I'm at <School>" and "I work at <Company> as <role>" phrases, and the first-hackathon
