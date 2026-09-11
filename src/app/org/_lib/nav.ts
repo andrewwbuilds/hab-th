@@ -1,7 +1,7 @@
 import type { Command, NavItem } from "@/components/shell";
 import { TRACKS, TRACK_LABEL } from "@/lib/types";
 
-export const ORG_WORKSPACE = { name: "Hackathon at Berkeley", hint: "Organizers" };
+export const ORG_WORKSPACE = { name: "CalHacks", hint: "Organizers" };
 
 export const ORG_NAV: NavItem[] = [
   { href: "/org", label: "Overview", icon: "dashboard", exact: true },

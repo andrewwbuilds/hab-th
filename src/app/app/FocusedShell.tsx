@@ -26,27 +26,30 @@ interface Step {
 
 function StepRail({ steps }: { steps: Step[] }) {
   return (
-    <ol aria-label="Progress" className="hidden items-center gap-1 sm:flex">
+    <ol aria-label="Progress" className="hidden items-center gap-1.5 sm:flex">
       {steps.map((step, index) => (
-        <li key={step.label} className="flex items-center gap-1">
-          {index > 0 && <span aria-hidden className="mx-1 h-px w-5 bg-border-strong" />}
+        <li key={step.label}>
           <Link
             href={step.href}
             aria-current={step.active ? "step" : undefined}
             className={cn(
-              "inline-flex h-7 items-center gap-2 rounded-control px-2 text-sm transition-colors duration-120 ease-out-quick hover:bg-hover",
-              step.active ? "text-fg" : "text-dim hover:text-fg",
+              "inline-flex h-7 items-center gap-2 rounded-control border px-2.5 text-sm transition-colors duration-120 ease-out-quick",
+              step.active
+                ? "border-accent bg-accent-soft text-fg"
+                : step.done
+                  ? "border-border-strong bg-panel text-fg hover:border-[#35363b] hover:bg-hover"
+                  : "border-border text-dim hover:border-border-strong hover:bg-hover hover:text-fg",
             )}
           >
             <span
               aria-hidden
               className={cn(
-                "inline-flex size-4 items-center justify-center rounded-full border text-[10px] tabular-nums",
+                "inline-flex size-4 items-center justify-center rounded-[4px] text-[10px] tabular-nums",
                 step.done
-                  ? "border-accent bg-accent text-white"
+                  ? "bg-accent text-white"
                   : step.active
-                    ? "border-accent text-accent"
-                    : "border-border-strong text-dim",
+                    ? "bg-accent-soft text-accent"
+                    : "bg-hover text-dim",
               )}
             >
               {step.done ? <Check className="size-2.5" strokeWidth={3} /> : index + 1}
@@ -76,7 +79,7 @@ export function FocusedShell({ track, pet, user, children }: FocusedShellProps) 
           <div className="flex min-w-0 items-center gap-3">
             <Wordmark size="sm" />
             <span aria-hidden className="hidden h-4 w-px bg-border-strong sm:block" />
-            <span className="hidden truncate text-sm text-muted sm:inline">Hackathon at Berkeley</span>
+            <span className="hidden truncate text-sm text-muted sm:inline">CalHacks</span>
           </div>
           <StepRail steps={steps} />
           <div className="flex min-w-0 items-center justify-end gap-2">

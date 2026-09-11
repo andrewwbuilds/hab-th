@@ -18,8 +18,8 @@ import "./landing.css";
 const aleo = Aleo({ subsets: ["latin"], weight: ["300", "400"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Encore — Make something worth staying up for",
-  description: "Apply to Hackathon at Berkeley with Eddy, Gary, Eric, or a guide of your own by your side.",
+  title: "Encore: make something worth staying up for",
+  description: "Apply to CalHacks with Eddy, Gary, Eric, or a guide of your own by your side.",
 };
 
 const ROLES = [
@@ -51,7 +51,7 @@ export default async function LandingPage() {
       <section className="encore-hero" aria-labelledby="hero-heading">
         <div className="encore-copy">
           <p className="encore-eyebrow">
-            <span /> HACKATHON AT BERKELEY / FALL 2026
+            <span /> CALHACKS / FALL 2026
           </p>
           <h1 id="hero-heading">
             <span className="encore-serif">Make something</span>
@@ -92,7 +92,7 @@ export default async function LandingPage() {
         <div className="encore-problem-art" aria-hidden>
           <HalftoneSkyline className="encore-problem-halftone" seed={19} rise={0.7} />
           <div className="mock-window mock-blank">
-            <p className="mock-label">Why do you want to come to Hackathon at Berkeley?</p>
+            <p className="mock-label">Why do you want to come to CalHacks?</p>
             <div className="mock-textarea">
               <span className="mock-caret" />
             </div>
