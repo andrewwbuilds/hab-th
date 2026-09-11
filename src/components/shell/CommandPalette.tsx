@@ -92,7 +92,6 @@ export function CommandPalette({ commands = [], nav = [], search }: CommandPalet
       <div className="flex h-11 items-center gap-2 border-b border-border px-3">
         <Search className="size-4 shrink-0 text-muted" />
         <Cmdk.Input
-          autoFocus
           value={query}
           onValueChange={setQuery}
           placeholder="Type a command or search"
