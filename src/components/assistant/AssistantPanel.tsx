@@ -247,8 +247,11 @@ export function AssistantPanel({
       current.length > 0
         ? current
         : [
-            { id: nextId.current++, role: "assistant", content: greeting(name, field) },
-            { id: nextId.current++, role: "assistant", content: fillIntro(definition, answersRef.current) },
+            {
+              id: nextId.current++,
+              role: "assistant",
+              content: `${greeting(name, field)} ${fillIntro(definition, answersRef.current)}`,
+            },
           ],
     );
     setOpen(true);
@@ -299,12 +302,7 @@ export function AssistantPanel({
       {
         id: nextId.current++,
         role: "assistant",
-        content: walkthroughIntro(name, TRACK_LABEL[track].toLowerCase(), field, voice.support.recognition),
-      },
-      {
-        id: nextId.current++,
-        role: "assistant",
-        content: fillIntro(definition, answersRef.current),
+        content: `${walkthroughIntro(name, TRACK_LABEL[track].toLowerCase(), field, voice.support.recognition)} ${fillIntro(definition, answersRef.current)}`,
         action: field ? { type: "clarify", fieldKey: field.key, text: field.hint } : undefined,
       },
     ]);
