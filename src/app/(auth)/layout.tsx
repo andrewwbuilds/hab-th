@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         <Link href="/" className="self-start rounded-control">
           <Wordmark size="md" />
         </Link>
-        <div className="flex flex-1 items-center justify-center py-12 lg:py-8 lg:[@media(max-height:760px)]:py-4">
+        <div className="flex flex-1 items-center justify-center py-12 lg:py-[clamp(0.5rem,4dvh,2rem)]">
           <div className="w-full max-w-[420px]">{children}</div>
         </div>
         <p className="text-sm text-dim">Hackathon at Berkeley · Fall 2026</p>
