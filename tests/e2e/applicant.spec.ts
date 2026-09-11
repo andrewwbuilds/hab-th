@@ -24,10 +24,21 @@ async function chooseGuide(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Save my guide" }).click();
 }
 
-test("signing up as a judge lands on the judge form", async ({ page }) => {
+function expectOnboarding(page: Page, track: string): Promise<void> {
+  return expect
+    .poll(() => new URL(page.url()).searchParams.get("next"))
+    .toBe(`/app/apply/${track}`)
+    .then(() => expect(page).toHaveURL(/\/app\/roadie\?next=/));
+}
+
+test("signing up as a judge starts the walkthrough for the judge form", async ({ page }) => {
   await signUp(page, uniqueEmail("judge"), "Judge");
+  await expectOnboarding(page, "judge");
+  await expect(page.getByRole("list", { name: "Progress" })).toBeVisible();
+  await page.getByRole("link", { name: "Skip for now" }).click();
   await expect(page).toHaveURL(/\/app\/apply\/judge$/);
   await expect(page.getByRole("heading", { name: "Judge application" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Choose a guide" }).first()).toBeVisible();
 });
 
 test("the landing role card preselects the track on sign-up", async ({ page }) => {
@@ -36,27 +47,31 @@ test("the landing role card preselects the track on sign-up", async ({ page }) =
   await expect(page).toHaveURL(/\/sign-up\?track=judge$/);
   await expect(page.getByRole("radio", { name: /^Judge/ })).toBeChecked();
   await createAccount(page, uniqueEmail("landing-judge"));
-  await expect(page).toHaveURL(/\/app\/apply\/judge$/);
+  await expectOnboarding(page, "judge");
 });
 
 test("a new applicant lands on the hacker form, picks a guide, and submits", async ({ page }) => {
   const email = uniqueEmail("hacker");
 
   await signUp(page, email);
-  await expect(page).toHaveURL(/\/app\/apply\/hacker$/);
-  await expect(page.getByRole("heading", { name: "Hacker application" })).toBeVisible();
-
-  await page.getByRole("link", { name: "Choose a guide" }).click();
-  await expect(page).toHaveURL(/\/app\/roadie\?next=/);
+  await expectOnboarding(page, "hacker");
   await chooseGuide(page);
   await expect(page).toHaveURL(/\/app\/apply\/hacker$/);
+  await expect(page.getByRole("heading", { name: "Hacker application" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Choose a guide" })).toHaveCount(0);
+
+  const chat = page.getByRole("dialog", { name: "Ask Gary" });
+  await expect(chat).toBeVisible();
+  await expect(chat).toContainText("First up");
+  await page.keyboard.press("Escape");
+  await expect(chat).toHaveCount(0);
   const dock = page.locator("[data-roadie-dock]");
   await expect(dock).toBeVisible();
   await expect(dock.locator("[aria-live]")).not.toHaveText("");
 
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Choose your guide" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/app\/apply\/hacker$/);
+  await expect(page.getByRole("dialog", { name: "Ask Gary" })).toHaveCount(0);
 
   await page.goto("/app/apply/hacker");
   await expect(page.getByRole("heading", { name: "Hacker application" })).toBeVisible();
@@ -83,4 +98,8 @@ test("a new applicant lands on the hacker form, picks a guide, and submits", asy
 
   await expect(page).toHaveURL(/\/app\/status\/hacker$/);
   await expect(page.locator("header").getByText("Submitted", { exact: true })).toBeVisible();
+
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Progress" })).toHaveCount(0);
 });
