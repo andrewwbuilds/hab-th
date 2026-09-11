@@ -337,7 +337,6 @@ export function GuidePicker({ pet, returnTo = null }: { pet: PetSpec | null; ret
               maxLength={40}
               value={name}
               onChange={event => { setName(event.target.value); setSaved(false); }}
-              className="max-w-72"
             />
           </Field>
         </div>
