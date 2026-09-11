@@ -18,7 +18,7 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
 
 export function Select({ size = "sm", invalid, options, placeholder, className, children, ...rest }: SelectProps) {
   return (
-    <span className={cn("relative inline-flex w-full", className)}>
+    <span className={cn("relative inline-flex shrink-0", className)}>
       <select
         {...rest}
         aria-invalid={invalid || rest["aria-invalid"] || undefined}

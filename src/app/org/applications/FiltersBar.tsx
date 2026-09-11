@@ -40,10 +40,10 @@ export function FiltersBar({ query, count }: FiltersBarProps) {
         apply({ q: q || undefined });
       }}
     >
-      <span className="whitespace-nowrap text-sm tabular-nums text-muted">
+      <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-muted">
         {count} {count === 1 ? "application" : "applications"}
       </span>
-      <div className="relative">
+      <div className="relative w-56 shrink-0">
         <Input
           id={SEARCH_INPUT_ID}
           name="q"
@@ -53,7 +53,7 @@ export function FiltersBar({ query, count }: FiltersBarProps) {
           aria-label="Search applications"
           aria-keyshortcuts="/"
           autoComplete="off"
-          className="peer w-[180px] pr-8"
+          className="peer pr-8"
           key={query.q ?? ""}
         />
         <span

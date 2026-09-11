@@ -7,7 +7,7 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
 }
 
 export const controlClass =
-  "w-full rounded-control border border-border-strong bg-panel text-base text-fg placeholder:text-dim transition-colors duration-120 ease-out-quick hover:border-[#35363b] focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed aria-invalid:border-danger";
+  "w-full appearance-none rounded-control border border-border-strong bg-panel text-base text-fg placeholder:text-dim transition-colors duration-120 ease-out-quick hover:border-[#35363b] focus:border-accent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed aria-invalid:border-danger";
 
 export function Input({ size = "sm", invalid, className, ...rest }: InputProps) {
   return (
