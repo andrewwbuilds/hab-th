@@ -3,8 +3,8 @@
 Take-home for Hackathon at Berkeley. A miniature hackathon management platform: applicants sign in and
 apply as a hacker, judge, mentor, or volunteer; organizers review, grade, and decide.
 
-Brand name: **Encore**. The pet companion feature is called a **Roadie**. Every applicant builds a Roadie
-from their music taste before applying, and the Roadie guides them through the whole application.
+Brand name: **Encore**. The pet companion feature is called a **Roadie**. An applicant can give their Roadie a
+guide (a face and a name) at any point; the guide is optional and only changes the voice the Roadie speaks in.
 
 ## Stack
 
@@ -23,6 +23,9 @@ exporting `proxy()`; `next build` uses Turbopack; layouts can use `LayoutProps<"
 
 - `profiles.role`: `applicant` | `organizer`. Set at signup. Organizer role granted when the signup form's
   invite code matches `ORGANIZER_INVITE_CODE` (server-side check, then `admin` client sets the role), or by seed.
+- Sign-up asks "What are you applying for?" with the four tracks (default hacker, preselected from `?track=` when
+  valid). Applicants get a draft for that track created with their own session and land on `/app/apply/<track>`.
+  Organizer sign-ups (non-empty invite code) ignore the choice and land on `/org`. A safe `next` param wins over both.
   The `protect_profile_role` trigger blocks role changes from everyone except organizers and the service role.
 - `DEMO_LOGIN=1` shows one-click demo sign-in buttons on the sign-in page (uses `SEED_PASSWORD`).
 - `applications.track`: `hacker` | `judge` | `mentor` | `volunteer`. One application per (user, track).
@@ -32,7 +35,9 @@ exporting `proxy()`; `next build` uses Turbopack; layouts can use `LayoutProps<"
 
 `status`: `draft` -> `submitted` -> `under_review` -> (`accepted` | `waitlisted` | `rejected`).
 
-- Applicant creates a draft by picking a track. Drafts autosave (debounced server action on change, plus explicit Save).
+- The first draft is created at sign-up for the chosen track. Any other track starts on first change of its form
+  (`createDraft` is idempotent over `unique(user_id, track)`). Drafts autosave (debounced server action on change,
+  plus explicit Save). Choosing a guide is optional and never blocks the form.
 - Submit runs full zod validation server-side, sets `submitted_at`, status `submitted`. After submit the applicant can
   no longer edit (RLS enforces: applicants may update only while `status = 'draft'`).
 - Organizers see all applications, move to `under_review` when they open one (explicit button, not implicit),
@@ -74,8 +79,9 @@ Trigger `set_updated_at` on applications, reviews, pets.
 /sign-in  /sign-up        auth forms (server actions in src/app/(auth)/actions.ts)
 /auth/sign-out            POST route handler
 /app                      applicant home: Roadie + application cards per track + statuses
-/app/roadie               music quiz -> pet creation (must complete before applying); revisit to view pet
-/app/apply/[track]        the application form for one track (draft autosave, submit)
+/app/roadie               guide picker (optional); `?next=<internal path>` returns there after saving
+/app/apply/[track]        the application form for one track (draft autosave, submit); sign-up lands here.
+                          Without a guide the page shows one line linking to /app/roadie?next=/app/apply/<track>
 /app/status/[track]       read-only view of a submitted application + decision
 /org                      organizer dashboard: counts by track/status, recent activity
 /org/applications         list of all applications: table with filters (track, status), sort, search, keyboard nav
@@ -88,7 +94,10 @@ Page-level server code re-checks the role (never trust proxy alone).
 
 ## Roadie (the pet): spec
 
-### Music profile (quiz input) `MusicProfile`
+### Music profile `MusicProfile`
+
+The quiz is not routed. `saveGuide` currently uses a fixed profile, so every pet derives the same way; the guide
+picker sets the face, name, and voice.
 
 ```ts
 {
@@ -115,7 +124,7 @@ GENRES: `electronic, hiphop, indie, pop, rock, metal, jazz, classical, rnb, coun
   `chattiness` from hoursPerDay (`terse`|`normal`|`talkative`); `accessory` from era (`headphones` 20s/10s,
   `cassette` 80s/90s, `vinyl` 70s, `ipod` 00s); `discoveryStyle` copied from discovery.
 - `name`: deterministic from a seeded hash of `topArtist + genres.join()`: pick from per-genre syllable lists;
-  the user can rename before saving (pet name is editable in the quiz's last step).
+  the user names the guide in the picker.
 - `stage`: derived from xp: 0-49 `egg`, 50-149 `hatchling`, 150+ `grown`. xp events (awarded by server actions,
   idempotent per event key stored in `pets.traits.xpEvents`): pet created 25, first draft 25, each form section
   completed 20, submit 60, decision received 20. The sprite visibly changes with stage. Every xp event is written by

@@ -2,17 +2,28 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { Button, Field, Input } from "@/components/ui";
+import { Button, Field, Input, RadioGroup, type RadioOption } from "@/components/ui";
+import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
+import { trackFromParam } from "@/lib/navigation";
+import { TRACKS, TRACK_LABEL, type Track } from "@/lib/types";
 import { signUp, type AuthFormState } from "../actions";
 
 interface SignUpFormProps {
   next?: string;
+  initialTrack: Track;
 }
 
-export function SignUpForm({ next }: SignUpFormProps) {
+const TRACK_OPTIONS: RadioOption[] = TRACKS.map((track) => ({
+  value: track,
+  label: TRACK_LABEL[track],
+  hint: FORM_DEFINITIONS[track].blurb,
+}));
+
+export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
   const [state, action, pending] = useActionState<AuthFormState, FormData>(signUp, {});
   const errors = state.fieldErrors ?? {};
   const values = state.values ?? {};
+  const selectedTrack = trackFromParam(values.track, initialTrack);
 
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
@@ -56,11 +67,21 @@ export function SignUpForm({ next }: SignUpFormProps) {
           required
         />
       </Field>
+      <Field label="What are you applying for?" error={errors.track}>
+        <RadioGroup
+          name="track"
+          aria-label="What are you applying for?"
+          options={TRACK_OPTIONS}
+          defaultValue={selectedTrack}
+          columns={2}
+          required
+        />
+      </Field>
       <Field
         label="Organizer invite code"
         htmlFor="inviteCode"
         optional
-        hint="Leave blank to apply as a participant"
+        hint="Leave blank to apply. Organizers skip the track above."
         error={errors.inviteCode}
       >
         <Input

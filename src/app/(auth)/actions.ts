@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createDraft } from "@/lib/data/applications";
 import { getProfile, HOME_BY_ROLE } from "@/lib/data/profiles";
-import type { Role } from "@/lib/types";
+import { applyPath, safeInternalPath } from "@/lib/navigation";
+import { TRACKS, type Role } from "@/lib/types";
 
 export interface AuthFormState {
   error?: string;
@@ -28,6 +30,7 @@ const signUpSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   inviteCode: z.string().trim().max(120).optional().default(""),
+  track: z.enum(TRACKS, { error: "Choose what you are applying for" }),
 });
 
 function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
@@ -42,11 +45,6 @@ function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
 function text(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-function safeNextPath(raw: string): string | null {
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  return raw;
 }
 
 async function destinationFor(userId: string, fallbackRole: Role, next: string | null): Promise<string> {
@@ -66,7 +64,7 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
     return { error: "That email and password do not match", values };
   }
 
-  redirect(await destinationFor(data.user.id, "applicant", safeNextPath(text(formData, "next"))));
+  redirect(await destinationFor(data.user.id, "applicant", safeInternalPath(text(formData, "next"))));
 }
 
 function inviteCodeMatches(inviteCode: string, configuredCode: string | undefined): boolean {
@@ -80,11 +78,12 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     fullName: text(formData, "fullName"),
     email: text(formData, "email").trim().toLowerCase(),
     inviteCode: text(formData, "inviteCode"),
+    track: text(formData, "track"),
   };
   const parsed = signUpSchema.safeParse({ ...values, password: text(formData, "password") });
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error), values };
 
-  const { fullName, email, password, inviteCode } = parsed.data;
+  const { fullName, email, password, inviteCode, track } = parsed.data;
   const wantsOrganizer = inviteCode.length > 0;
   if (wantsOrganizer && !inviteCodeMatches(inviteCode, process.env.ORGANIZER_INVITE_CODE)) {
     return { fieldErrors: { inviteCode: "That invite code is not valid" }, values };
@@ -109,7 +108,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     return { error: "Account created, but sign-in is not available yet. Try signing in.", values };
   }
 
-  let role: Role = "applicant";
+  const next = safeInternalPath(text(formData, "next"));
   if (wantsOrganizer) {
     const { error: grantError } = await createAdminClient()
       .from("profiles")
@@ -119,8 +118,10 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
       await supabase.auth.signOut();
       return { error: "Could not grant organizer access. Try again.", values };
     }
-    role = "organizer";
+    redirect(next ?? HOME_BY_ROLE.organizer);
   }
 
-  redirect(await destinationFor(data.user.id, role, safeNextPath(text(formData, "next"))));
+  // The form autosaves a draft on first change, so a failure here only costs the head start.
+  await createDraft(track);
+  redirect(next ?? applyPath(track));
 }

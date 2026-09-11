@@ -2,9 +2,9 @@
 
 A miniature hackathon management portal, built as the Hackathon at Berkeley tech take-home.
 
-Applicants sign in, build a **Roadie** (a small pet derived from their music taste) and apply as a hacker, judge,
-mentor, or volunteer. The Roadie sits in the corner of every applicant page and talks them through the form in a
-voice shaped by what they listen to. Organizers see every application in a Linear-style table, grade against a
+Applicants pick a track at sign-up (hacker, judge, mentor, or volunteer) and land straight on that form with a
+draft already started. A **Roadie** sits in the corner of every applicant page and talks them through the form;
+choosing a guide for it is optional and only changes its voice. Organizers see every application in a Linear-style table, grade against a
 per-track rubric, and set decisions that applicants see on their status page.
 
 ## Live
@@ -69,8 +69,9 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
   triggers, so an applicant cannot edit a submitted application or set a decision even with a hand-crafted request.
 - `src/lib/forms/tracks.ts` defines each track's questions and rubric. Answers are stored as `jsonb`, validated with
   zod on submit, and rendered for organizers by walking the same definition.
-- `src/lib/pet/` is the Roadie engine: deterministic derivation from the music quiz, a name generator, and a voice
-  module that picks lines by tone and context. `src/components/pet/` renders the SVG sprite, the dock, and the quiz.
+- `src/lib/pet/` is the Roadie engine: it derives a fixed pet spec, tracks xp, and picks voice lines by tone and
+  context. The guide picker (portrait, drawing, or photo) sets the guide's face, name, and voice.
+  `src/components/pet/` renders the sprite, the dock, and the picker.
 - `src/lib/data/` is the only place that talks to Supabase from the app. Server actions validate input with zod and
   return `{ok, data} | {ok, error}`.
 - `docs/decisions/` holds short records of the choices that were not obvious.
@@ -106,8 +107,8 @@ put that URL in the Live section above.
 
 ## Status
 
-Working end to end against a local Supabase stack: sign-up and sign-in for applicants and organizers, the Roadie
-quiz and companion, four track applications with autosave and submit, the organizer table with filters and keyboard
+Working end to end against a local Supabase stack: sign-up and sign-in for applicants and organizers, the optional
+Roadie guide and companion, four track applications with autosave and submit, the organizer table with filters and keyboard
 navigation, grading with a per-track rubric, decisions that show up on the applicant's status page, unit tests, and
 Playwright flows. Not yet done: the cloud Supabase project and the Vercel deployment (run `scripts/deploy.sh` once
 `npx supabase login` has been done; see the Deployment section).
