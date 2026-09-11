@@ -2,9 +2,10 @@
 
 A miniature hackathon management portal, built as the Hackathon at Berkeley tech take-home.
 
-Applicants pick a track at sign-up (hacker, judge, mentor, or volunteer) and land straight on that form with a
-draft already started. A **Roadie** sits in the corner of every applicant page and talks them through the form;
-choosing a guide for it is optional and only changes its voice. Organizers see every application in a Linear-style table, grade against a
+Applicants pick a track at sign-up (hacker, judge, mentor, or volunteer) and get a draft started for it. Their
+first application runs as a walkthrough with no sidebar: pick a guide (or skip), then the guide opens a chat on
+the form, introduces the first question, and answers by text or voice. A **Roadie** sits in the corner of every
+applicant page and talks them through the form; choosing a guide for it is optional and only changes its voice. Organizers see every application in a Linear-style table, grade against a
 per-track rubric, and set decisions that applicants see on their status page.
 
 ## Live
