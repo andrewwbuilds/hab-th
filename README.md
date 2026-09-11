@@ -4,7 +4,7 @@ A miniature hackathon management portal, built as the Hackathon at Berkeley tech
 
 Applicants pick a track at sign-up (hacker, judge, mentor, or volunteer) and get a draft started for it. Their
 first application runs as a walkthrough with no sidebar: pick a guide (or skip), then the guide opens a chat on
-the form, introduces the first question, and answers by text or voice. A **Roadie** sits in the corner of every
+the form, introduces the first question, lists the quick answers it can fill from conversation, and talks by text or live voice. A **Roadie** sits in the corner of every
 applicant page and talks them through the form; choosing a guide for it is optional and only changes its voice. Organizers see every application in a Linear-style table, grade against a
 per-track rubric, and set decisions that applicants see on their status page.
 
@@ -81,14 +81,24 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 ## Roadie assistant
 
 On the application form, Cmd/Ctrl+J (or the "Ask <name>" button under the Roadie) opens a chat with the applicant's
-Roadie. Type or use the mic (Web Speech API, hidden when the browser lacks it) to ask where a field is, what a
-question means, or for an example. Each reply can highlight a field, show an example with a "Use this" button, or
-clarify the question. The Roadie never writes the application for you.
+Roadie. It opens by listing the quick answers it can fill (school, year, links, sizes, skills, availability, and so
+on) and says the essays stay yours. Tell it about yourself, typed or spoken, and it writes those answers into the
+form at once, shows what it set, and offers Undo. Ask where a field is, what a question means, or for an example
+and it highlights, clarifies, or shows an example with a "Use this" button.
+
+Voice is the browser's Web Speech API, so there is no audio cost and the buttons hide when the browser lacks it.
+The mic button takes one message. **Talk live** keeps the mic open, sends each finished sentence, reads the reply
+aloud in the Roadie's tone, and reopens the mic when it is done talking.
+
+Essays are guarded on both sides. Fields marked `essay: true` in `src/lib/forms/tracks.ts` are never filled, an
+example the model offers for one is replaced server-side with the field hint and a "yours to write" line, and the
+prompt tells the model to decline and ask questions that draw the answer out instead. See
+`docs/decisions/0007-roadie-fills-quick-answers-never-essays.md`.
 
 `src/app/api/assistant/route.ts` checks the applicant session, validates the body, and calls `src/lib/ai/provider.ts`,
 which talks to Groq or OpenRouter with plain `fetch` and JSON output, retries once on a fallback model, and then falls
-back to `src/lib/ai/offline.ts`. The offline guide answers from the form definition alone, so the assistant works with
-no API key at all; that is the mode the demo and the unit tests use. See `docs/decisions/0004-assistant-llm-with-offline-fallback.md`.
+back to `src/lib/ai/offline.ts`. The offline guide answers from the form definition alone and pulls quick answers out
+of plain statements with regular expressions, so the assistant works with no API key at all; that is the mode the demo and the unit tests use. See `docs/decisions/0004-assistant-llm-with-offline-fallback.md`.
 
 ## Selfie portraits
 
