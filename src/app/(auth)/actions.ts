@@ -89,23 +89,24 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     return { fieldErrors: { inviteCode: "That invite code is not valid" }, values };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
+  // Created pre-confirmed so sign-up works even when the project has "Confirm email" on.
+  const { data: created, error: createError } = await createAdminClient().auth.admin.createUser({
     email,
     password,
-    options: { data: { full_name: fullName } },
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
   });
-  if (error) {
-    const taken = /already|exists/i.test(error.message);
+  if (createError || !created.user) {
+    const taken = createError?.code === "email_exists" || /already|exists/i.test(createError?.message ?? "");
     return taken
       ? { fieldErrors: { email: "An account with this email already exists" }, values }
-      : { error: error.message, values };
+      : { error: createError?.message ?? "Could not create your account. Try again.", values };
   }
-  if (!data.user || data.user.identities?.length === 0) {
-    return { fieldErrors: { email: "An account with this email already exists" }, values };
-  }
-  if (!data.session) {
-    return { error: "Account created, but sign-in is not available yet. Try signing in.", values };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
+    return { error: "Account created, but we could not sign you in. Try signing in.", values };
   }
 
   const next = safeInternalPath(text(formData, "next"));
