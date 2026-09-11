@@ -3,7 +3,7 @@ import type { PetSpec } from "@/lib/types";
 import { GUIDE_JSON_SCHEMA, parseGuideResponse, type GuideInput, type GuideResponse } from "@/lib/ai/guide";
 import { resolveProviders, type ProviderConfig } from "@/lib/ai/config";
 import { openrouterHeaders, retryable } from "@/lib/ai/http";
-import { offlineGuide } from "@/lib/ai/offline";
+import { isSkip, offlineGuide, reinforceAskedAnswer } from "@/lib/ai/offline";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { RESUME_JSON_SCHEMA, buildResumePrompt, offlineResume, parseResumeResponse, type ResumePromptInput } from "@/lib/ai/resume";
 
@@ -96,15 +96,19 @@ function lastUserMessage(input: GuideInput): string {
   return "";
 }
 
-function offline(input: GuideInput): GuideResponse {
-  return offlineGuide({
+function offlineInput(input: GuideInput) {
+  return {
     definition: input.definition,
     answers: input.answers,
     fieldKey: input.fieldKey,
     asking: input.asking,
     asked: input.asked,
     message: lastUserMessage(input),
-  });
+  };
+}
+
+function offline(input: GuideInput): GuideResponse {
+  return offlineGuide(offlineInput(input));
 }
 
 interface Job {
@@ -145,7 +149,8 @@ const RESUME_JOB: Job = { schemaName: "roadie_resume", schema: RESUME_JSON_SCHEM
  */
 export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
   const providers = resolveProviders(process.env);
-  if (providers.length === 0) return offline(input);
+  // "skip" on the field being asked needs no model, and models tend to argue with it.
+  if (providers.length === 0 || (input.asking && isSkip(lastUserMessage(input)))) return offline(input);
 
   const system = buildSystemPrompt({
     definition: input.definition,
@@ -157,7 +162,7 @@ export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
   });
   const messages: ChatMessage[] = [{ role: "system", content: system }, ...input.messages];
   const text = await complete(providers, messages, GUIDE_JOB);
-  return text ? parseGuideResponse(text, input.definition) : offline(input);
+  return text ? reinforceAskedAnswer(parseGuideResponse(text, input.definition), offlineInput(input)) : offline(input);
 }
 
 /** Reads a resume into fills and essay topics, falling back to the regex reader. Never throws. */

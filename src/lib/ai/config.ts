@@ -13,14 +13,20 @@ const ENDPOINTS: Record<Exclude<ProviderName, "offline">, string> = {
 };
 
 /**
- * Tried in order until one answers. The free OpenRouter models share an upstream pool and are often
- * rate-limited, so the chain is long; every model here answered a JSON fill in a few seconds when picked.
- * Left out on purpose: Groq's gpt-oss-20b and qwen3.6 fail strict JSON validation, and OpenRouter's
- * nemotron-3-super writes its reasoning into the message field and takes up to half a minute.
+ * Tried in order until one answers. OpenRouter leads with Gemini Flash Lite: paid but about a twentieth of a
+ * cent per resume, answers in one or two seconds, and reads a resume fully. The free models behind it share an
+ * upstream pool and are often rate-limited. Left out on purpose: gpt-oss-120b and gpt-5-nano on OpenRouter take
+ * ten seconds or more, nemotron-3-super writes its reasoning into the message, and Groq's gpt-oss-20b and
+ * qwen3.6 fail strict JSON validation.
  */
 export const DEFAULT_MODELS: Record<Exclude<ProviderName, "offline">, string[]> = {
   groq: ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"],
-  openrouter: ["google/gemma-4-31b-it:free", "nex-agi/nex-n2.5-pro:free", "poolside/laguna-s-2.1:free"],
+  openrouter: [
+    "google/gemini-2.5-flash-lite",
+    "google/gemma-4-31b-it:free",
+    "nex-agi/nex-n2.5-pro:free",
+    "poolside/laguna-s-2.1:free",
+  ],
 };
 
 export type ProviderEnv = Readonly<Record<string, string | undefined>>;
@@ -72,13 +78,14 @@ function modelsFor(name: Exclude<ProviderName, "offline">, override: string | un
 }
 
 /**
- * Every provider worth trying, primary first. When the primary's models are all down (a shared free pool
- * rate-limited upstream, say) the other keyed provider answers instead of the regex fallback. AI_MODEL only
- * applies to the primary. AI_PROVIDER=offline turns the list off.
+ * Every provider worth trying, primary first. With AI_PROVIDER set, only that provider is used; every request
+ * goes through its model chain and then the regex fallback. With no AI_PROVIDER, the other keyed provider
+ * answers when the primary's models are all down. AI_MODEL only applies to the primary.
  */
 export function resolveProviders(env: ProviderEnv): ProviderConfig[] {
   const primary = resolveProvider(env);
   if (primary.name === "offline") return [];
+  if (env.AI_PROVIDER?.trim()) return [primary];
   const others: ProviderConfig[] = [];
   for (const name of ["groq", "openrouter"] as const) {
     if (name === primary.name) continue;

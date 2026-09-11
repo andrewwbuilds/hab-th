@@ -5,6 +5,7 @@ import { z } from "zod";
 import { essayFields, openQuickFields, sanitizeFills, type Fill } from "@/lib/ai/fill";
 import {
   MAX_TOPICS_PER_ESSAY,
+  fieldsOf,
   rawFillSchema,
   rawTopicSchema,
   sanitizeTopics,
@@ -61,7 +62,7 @@ export function buildResumePrompt({ definition, answers, pet, resume }: ResumePr
   const essays = essayFields(definition);
   return [
     `You are ${name}, the applicant's Roadie, reading the resume they just uploaded for the "${definition.title}" form of the Encore hackathon.`,
-    "\"message\" is ignored; the server writes it. Put your effort into fields and topics.",
+    "\"message\" may be an empty string; the server writes it. Put your effort into fields and topics.",
     "",
     describeForm(definition, answers),
     `\nFillable fields still empty: ${openQuick.length > 0 ? openQuick.join(", ") : "none"}.`,
@@ -71,7 +72,7 @@ export function buildResumePrompt({ definition, answers, pet, resume }: ResumePr
     '{"message": string, "fields": [{"fieldKey": string, "value": string}], "topics": [{"fieldKey": string, "title": string, "angle": string}]}',
     "",
     "Rules:",
-    "- fields: every fillable field the resume supports, all at once. School, graduation year, links, role, employer, skills, level, and the like usually appear on a resume; sizes, pronouns, dietary needs, and availability usually do not. Never guess a value the resume does not state. An existing answer is overwritten only when the resume clearly contradicts it.",
+    "- fields: every fillable field the resume states, all at once. School, graduation year, links, role, employer, skills, and the like usually appear on a resume; sizes, pronouns, dietary needs, availability, team status, experience level, and first-hackathon almost never do. Leave a field out entirely rather than sending an empty string or a guess. An existing answer is overwritten only when the resume clearly contradicts it.",
     "- Fill values: select and multiselect use option values (the part before the colon), comma-separated for multiselect; checkbox is \"true\" or \"false\"; number is digits; url is a full https link. Pick the closest option value; a value that fits no option is dropped.",
     `- topics: for each essay field, up to ${MAX_TOPICS_PER_ESSAY} things on the resume the applicant could write that essay about. "title" names the concrete thing (a project, a job, a role, a result) in under ten words. "angle" is one short line on why it fits that question. Topics are pointers, not drafts: never write sentences the applicant could paste into the essay.`,
     "- Essays are never filled. No essay key may appear in fields.",
@@ -94,11 +95,58 @@ function stripFences(raw: string): string {
   return trimmed;
 }
 
+/** The message is written server-side, so a model that leaves it out is still a good answer. */
 const resumeShape = z.object({
-  message: z.string(),
+  message: z.string().nullish(),
   fields: z.array(rawFillSchema).max(40).nullish(),
   topics: z.array(rawTopicSchema).max(20).nullish(),
 });
+
+function mentioned(resume: string, needle: string): boolean {
+  const clean = needle.trim().toLowerCase();
+  if (clean.length < 3) return false;
+  return new RegExp(`\\b${clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(resume);
+}
+
+/**
+ * Keeps only fills the resume text can back up. Models guess a shirt size, a skill level, or a team status
+ * from nothing; an option counts only when its label or value appears in the resume, a year only when it
+ * does, a link only when its host does, and a checkbox only when ticked. Free text (school, role) is trusted.
+ */
+export function evidencedFills(definition: FormDefinition, fills: Fill[], resume: string): Fill[] {
+  const byKey = new Map(fieldsOf(definition).map((field) => [field.key, field]));
+  const lower = resume.toLowerCase();
+  return fills.filter((fill) => {
+    const field = byKey.get(fill.fieldKey);
+    if (!field) return false;
+    const labelOf = (value: string) => field.options?.find((option) => option.value === value)?.label ?? value;
+    switch (field.type) {
+      case "checkbox":
+        return fill.value === true;
+      case "number":
+        return lower.includes(String(fill.value));
+      case "url": {
+        try {
+          const host = new URL(String(fill.value)).hostname.replace(/^www\./, "");
+          return lower.includes(host);
+        } catch {
+          return false;
+        }
+      }
+      case "select":
+        return typeof fill.value === "string" && (mentioned(lower, fill.value) || mentioned(lower, labelOf(fill.value)));
+      case "multiselect":
+        return Array.isArray(fill.value) && fill.value.some((value) => mentioned(lower, value) || mentioned(lower, labelOf(value)));
+      default:
+        return true;
+    }
+  }).map((fill) => {
+    const field = byKey.get(fill.fieldKey);
+    if (field?.type !== "multiselect" || !Array.isArray(fill.value)) return fill;
+    const labelOf = (value: string) => field.options?.find((option) => option.value === value)?.label ?? value;
+    return { ...fill, value: fill.value.filter((value) => mentioned(lower, value) || mentioned(lower, labelOf(value))) };
+  });
+}
 
 /** The fallback message: what was set, how many ideas follow, and what is still open. */
 export function summariseResume(definition: FormDefinition, answers: Answers, fills: Fill[], topics: EssayTopic[]): string {
@@ -141,7 +189,7 @@ export function parseResumeResponse(raw: string, definition: FormDefinition, ans
   }
   const parsed = resumeShape.safeParse(json);
   if (!parsed.success) return offlineResume(definition, answers, resume);
-  const fills = sanitizeFills(definition, parsed.data.fields ?? []);
+  const fills = evidencedFills(definition, sanitizeFills(definition, parsed.data.fields ?? []), resume);
   const topics = sanitizeTopics(definition, parsed.data.topics ?? []);
   const out: GuideResponse = { message: summariseResume(definition, answers, fills, topics) };
   if (fills.length > 0) out.action = { type: "fill", fields: fills };

@@ -166,16 +166,23 @@ function urlFieldFor(fields: FieldDef[], url: string): FieldDef | undefined {
   return urls.find((field) => /portfolio|site|website/.test(field.key));
 }
 
-function optionsMentioned(field: FieldDef, lower: string): string[] {
+/**
+ * Option values named in the text. Size words count only next to "size", "shirt", or "tee", or when the
+ * text answers a size question outright, so "a small LLVM front end" on a resume is not a shirt size.
+ */
+function optionsMentioned(field: FieldDef, lower: string, answering = false): string[] {
   const values: string[] = [];
   for (const option of field.options ?? []) {
     const head = option.label.toLowerCase().split(/[:(]/)[0]?.trim() ?? "";
     const needles = [option.value.toLowerCase(), head].filter((needle) => needle.length >= 3);
     if (option.value.length <= 3 && /shirt|size/.test(field.key)) {
-      const sized = new RegExp(`\\b(?:size|shirt)\\s*(?:is\\s*)?${option.value}\\b`, "i");
+      const sized = new RegExp(`\\b(?:size|shirt|tee)\\s*(?:is\\s*)?${option.value}\\b`, "i");
       if (sized.test(lower)) values.push(option.value);
       for (const [word, value] of Object.entries(SIZE_WORDS)) {
-        if (value === option.value.toLowerCase() && new RegExp(`\\b${word}\\b`).test(lower)) values.push(option.value);
+        if (value !== option.value.toLowerCase()) continue;
+        const near = new RegExp(`\\b(?:size|shirt|tee)\\b[^.\\n]{0,12}\\b${word}\\b|\\b${word}\\b[^.\\n]{0,12}\\b(?:size|shirt|tee)\\b`);
+        const bare = new RegExp(`^\\W*(?:an?\\s+)?${word}\\W*$`);
+        if (near.test(lower) || (answering && bare.test(lower))) values.push(option.value);
       }
       continue;
     }
@@ -280,7 +287,7 @@ export function askLine(field: FieldDef): string {
   return `${field.label}?${options}${yesNo}${optional}`;
 }
 
-const SKIP = /^\s*(?:skip|next|pass|none|nothing|no thanks|nah|n\/a|not applicable|leave it|move on)\b[\s.!]*$/i;
+const SKIP = /^\s*(?:skip|next|pass|none|nothing|no thanks|nah|n\/a|not applicable|leave it|move on)(?:\s+(?:it|this|that|this one|that one|please))?\b[\s.!]*$/i;
 const YES = /\b(?:yes|yeah|yep|yup|true|correct|it is|i do|i am|i have)\b/i;
 const NO = /\b(?:no|nope|nah|false|not|never|isn'?t|i don'?t|i haven'?t)\b/i;
 /** "I go to UC Berkeley" answers a school question with "UC Berkeley". */
@@ -333,16 +340,49 @@ export function answerFor(field: FieldDef, message: string): AnswerValue | undef
       return coerceFill(field, spokenUrl(handle));
     }
     case "select": {
-      const values = optionsMentioned(field, lower);
+      const values = optionsMentioned(field, lower, true);
       return values.length === 1 ? values[0] : coerceFill(field, text.replace(LEAD_IN, ""));
     }
     case "multiselect": {
-      const values = optionsMentioned(field, lower);
+      const values = optionsMentioned(field, lower, true);
       return values.length > 0 ? values : coerceFill(field, text.replace(LEAD_IN, ""));
     }
     default:
       return coerceFill(field, text.replace(LEAD_IN, ""));
   }
+}
+
+/** True when the reply is a "skip" for the field being asked; the server answers this without a model. */
+export function isSkip(message: string): boolean {
+  return SKIP.test(message);
+}
+
+/**
+ * A model sometimes says "Set shirt size to M" and sends no fill, or re-asks a question that was just
+ * answered. When the asked field is one `answerFor` can read strictly (an option, a year, a link, a yes or
+ * no), or the model itself claims a set, the reply is written and the walk-through moves on.
+ */
+export function reinforceAskedAnswer(response: GuideResponse, input: OfflineGuideInput): GuideResponse {
+  const field = fields(input.definition).find((candidate) => candidate.key === input.asking);
+  if (!field || isEssay(field) || QUESTION.test(input.message) || SKIP.test(input.message)) return response;
+  const current = response.action?.type === "fill" ? response.action.fields : [];
+  if (current.some((fill) => fill.fieldKey === field.key)) return response;
+  const strict = field.type !== "text" && field.type !== "textarea";
+  const claimed = /^\s*set\b/i.test(response.message);
+  if (!strict && !claimed) return response;
+  const value = answerFor(field, input.message);
+  if (value === undefined) return response;
+  const fills: Fill[] = [{ fieldKey: field.key, value }, ...current];
+  const after: Answers = { ...input.answers };
+  for (const fill of fills) after[fill.fieldKey] = fill.value;
+  const out: GuideResponse = { ...response, action: { type: "fill", fields: fills } };
+  if (!out.ask || out.ask.fieldKey === field.key) {
+    const next = nextQuestion(input.definition, after, [...(input.asked ?? []), ...fills.map((fill) => fill.fieldKey)]);
+    out.message = `Set ${field.label.toLowerCase()}. ${next ? askLine(next) : "That is every question. Read it through and submit."}`;
+    if (next) out.ask = { fieldKey: next.key };
+    else delete out.ask;
+  }
+  return out;
 }
 
 function askNext(definition: FormDefinition, answers: Answers, asked: readonly string[], lead: string): GuideResponse {

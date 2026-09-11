@@ -29,6 +29,14 @@ function normalise(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const PRONOUN_PAIR = /^(she|he|they|ze|xe)\s*(?:\/|slash|,|and|\s)\s*(her|him|them|hir|zir|xem)$/i;
+
+/** "he him" and "He / Him" become he/him; anything else is kept as written. */
+export function normalisePronouns(text: string): string {
+  const pair = text.trim().match(PRONOUN_PAIR);
+  return pair ? `${pair[1]}/${pair[2]}`.toLowerCase() : text;
+}
+
 function matchOption(field: FieldDef, raw: string): string | undefined {
   const needle = normalise(raw);
   if (!needle) return undefined;
@@ -78,7 +86,7 @@ export function coerceFill(field: FieldDef, raw: unknown): AnswerValue | undefin
     case "text":
     case "textarea": {
       if (typeof raw !== "string" && typeof raw !== "number") return undefined;
-      const text = String(raw).trim();
+      const text = field.key === "pronouns" ? normalisePronouns(String(raw)).trim() : String(raw).trim();
       if (!text) return undefined;
       const max = field.maxLength ?? (field.type === "text" ? 200 : 2000);
       return text.length > max ? text.slice(0, max).trimEnd() : text;

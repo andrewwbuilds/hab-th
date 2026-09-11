@@ -3,8 +3,8 @@ import { DEFAULT_IMAGE_MODELS, DEFAULT_MODELS, IMAGE_ENDPOINT, resolveImageProvi
 import { LIMIT_PER_WINDOW, LIMIT_WINDOW_MS, allowRequest, resetLimiter } from "../../src/lib/ai/limiter";
 import { coerceFill, fillIntro, isEssay, sanitizeFills } from "../../src/lib/ai/fill";
 import { MAX_REPLY_CHARS, essayCoaching, parseGuideResponse, sanitizeTopics } from "../../src/lib/ai/guide";
-import { answerFor, askLine, exampleFor, extractFills, nextQuestion, offlineGuide, pickField } from "../../src/lib/ai/offline";
-import { offlineResume, parseResumeResponse, resumeHeadlines } from "../../src/lib/ai/resume";
+import { answerFor, askLine, exampleFor, extractFills, isSkip, nextQuestion, offlineGuide, pickField, reinforceAskedAnswer } from "../../src/lib/ai/offline";
+import { evidencedFills, offlineResume, parseResumeResponse, resumeHeadlines } from "../../src/lib/ai/resume";
 import { PORTRAIT_PROMPT, buildPortraitRequest, parsePortraitResponse } from "../../src/lib/ai/portrait";
 import { buildSystemPrompt } from "../../src/lib/ai/prompt";
 import { FORM_DEFINITIONS } from "../../src/lib/forms/tracks";
@@ -127,6 +127,14 @@ describe("parseGuideResponse", () => {
 });
 
 describe("fill helpers", () => {
+  it("writes pronouns as a slash set whatever the model sent", () => {
+    const pronouns = fields.find((field) => field.key === "pronouns");
+    if (!pronouns) throw new Error("no pronouns field");
+    expect(coerceFill(pronouns, "he him")).toBe("he/him");
+    expect(coerceFill(pronouns, "She / Her")).toBe("she/her");
+    expect(coerceFill(pronouns, "any")).toBe("any");
+  });
+
   it("flags the long written answers as essays and nothing else", () => {
     const essays = fields.filter(isEssay).map((field) => field.key);
     expect(essays).toEqual(["proud_project", "build_idea", "why_encore"]);
@@ -193,6 +201,12 @@ describe("offline fill extractor", () => {
     expect(byKey.shirt_size).toBe("m");
     expect(byKey.first_hackathon).toBe(true);
     expect(byKey.proud_project).toBeUndefined();
+  });
+
+  it("does not read a size word off a sentence about something else", () => {
+    expect(extractFills(hacker, "I built a small LLVM front end", { statement: true })).toEqual([]);
+    expect(extractFills(hacker, "shirt size small").find((fill) => fill.fieldKey === "shirt_size")?.value).toBe("s");
+    expect(extractFills(hacker, "I take a large shirt").find((fill) => fill.fieldKey === "shirt_size")?.value).toBe("l");
   });
 
   it("turns a stated handle into a link without being asked", () => {
@@ -416,6 +430,38 @@ describe("walk-through", () => {
     expect(response.ask).toEqual({ fieldKey: "linkedin" });
   });
 
+  it("writes the answer the model only talked about, and moves on", () => {
+    const talked = reinforceAskedAnswer(
+      { message: "Set shirt size to M. Experience level?", ask: { fieldKey: "experience_level" } },
+      { definition: hacker, answers: {}, asking: "shirt_size", asked: [], message: "medium" },
+    );
+    expect(talked.action).toEqual({ type: "fill", fields: [{ fieldKey: "shirt_size", value: "m" }] });
+    expect(talked.ask).toEqual({ fieldKey: "experience_level" });
+
+    const reasked = reinforceAskedAnswer(
+      { message: "Pronouns?", ask: { fieldKey: "pronouns" } },
+      { definition: hacker, answers: {}, asking: "pronouns", asked: ["school", "graduation_year"], message: "he him" },
+    );
+    expect(reasked.action).toBeUndefined();
+
+    const claimed = reinforceAskedAnswer(
+      { message: "Set pronouns. GitHub?", ask: { fieldKey: "pronouns" } },
+      { definition: hacker, answers: {}, asking: "pronouns", asked: ["school", "graduation_year"], message: "he him" },
+    );
+    expect(claimed.action).toEqual({ type: "fill", fields: [{ fieldKey: "pronouns", value: "he/him" }] });
+    expect(claimed.ask).toEqual({ fieldKey: "github" });
+    expect(claimed.message).toMatch(/^Set pronouns\. GitHub\?/);
+
+    const untouched = reinforceAskedAnswer(
+      { message: "It is in the first section.", action: { type: "highlight", fieldKey: "school" } },
+      { definition: hacker, answers: {}, asking: "school", asked: [], message: "where is the school field?" },
+    );
+    expect(untouched.action?.type).toBe("highlight");
+    expect(isSkip("skip")).toBe(true);
+    expect(isSkip("Skip it.")).toBe(true);
+    expect(isSkip("skip school, I want github")).toBe(false);
+  });
+
   it("keeps a model ask only for a real field", () => {
     const raw = JSON.stringify({ message: "School?", action: null, ask: { fieldKey: "school" } });
     expect(parseGuideResponse(raw, hacker).ask).toEqual({ fieldKey: "school" });
@@ -455,10 +501,11 @@ describe("resume", () => {
 
   it("parses model output into a fill, topics, a message, and the next question", () => {
     const raw = JSON.stringify({
-      message: "ignored",
       fields: [
         { fieldKey: "school", value: "UC Berkeley" },
         { fieldKey: "graduation_year", value: "2027" },
+        { fieldKey: "pronouns", value: "" },
+        { fieldKey: "first_hackathon", value: "false" },
         { fieldKey: firstEssay.key, value: "a whole essay" },
       ],
       topics: [{ fieldKey: firstEssay.key, title: "Compiler toolkit", angle: "depth" }],
@@ -475,6 +522,30 @@ describe("resume", () => {
     expect(response.message).toMatch(/^Set school, graduation year\. 1 essay idea below\./);
     expect(response.ask).toEqual({ fieldKey: "pronouns" });
     expect(JSON.stringify(response)).not.toContain("a whole essay");
+  });
+
+  it("drops resume fills the resume does not back up", () => {
+    const kept = evidencedFills(
+      hacker,
+      [
+        { fieldKey: "shirt_size", value: "l" },
+        { fieldKey: "experience_level", value: "intermediate" },
+        { fieldKey: "team_status", value: "solo" },
+        { fieldKey: "skills", value: ["frontend", "backend", "hardware"] },
+        { fieldKey: "graduation_year", value: 2027 },
+        { fieldKey: "github", value: "https://github.com/andrewwbuilds" },
+        { fieldKey: "portfolio", value: "https://nowhere.example" },
+        { fieldKey: "first_hackathon", value: false },
+        { fieldKey: "school", value: "UC Berkeley" },
+      ],
+      resume,
+    );
+    expect(kept).toEqual([
+      { fieldKey: "skills", value: ["frontend", "backend"] },
+      { fieldKey: "graduation_year", value: 2027 },
+      { fieldKey: "github", value: "https://github.com/andrewwbuilds" },
+      { fieldKey: "school", value: "UC Berkeley" },
+    ]);
   });
 
   it("falls back to the regex reader when the model output is not JSON", () => {
@@ -578,11 +649,13 @@ describe("portrait request and response", () => {
 });
 
 describe("resolveProviders", () => {
-  it("lists the primary first and the other keyed provider after it", () => {
-    const both = resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "openrouter" });
-    expect(both.map((provider) => provider.name)).toEqual(["openrouter", "groq"]);
-    expect(both[0]?.models).toEqual(DEFAULT_MODELS.openrouter);
-    expect(both[1]?.models).toEqual(DEFAULT_MODELS.groq);
+  it("uses only the named provider, or both keyed providers when none is named", () => {
+    const named = resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "openrouter" });
+    expect(named.map((provider) => provider.name)).toEqual(["openrouter"]);
+    expect(named[0]?.models).toEqual(DEFAULT_MODELS.openrouter);
+    const both = resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o" });
+    expect(both.map((provider) => provider.name)).toEqual(["groq", "openrouter"]);
+    expect(both[1]?.models).toEqual(DEFAULT_MODELS.openrouter);
     expect(resolveProviders({ GROQ_API_KEY: "g" }).map((provider) => provider.name)).toEqual(["groq"]);
     expect(resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "offline" })).toEqual([]);
   });
