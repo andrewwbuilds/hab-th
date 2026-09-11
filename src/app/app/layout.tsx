@@ -19,7 +19,7 @@ function RoadieMini({ pet }: { pet: PetSpec | null }) {
         <span aria-hidden className="size-7 shrink-0 rounded-full border border-dashed border-border-strong" />
         <span className="flex min-w-0 flex-col leading-none">
           <span className="truncate text-sm font-medium text-fg">No Roadie yet</span>
-          <span className="text-xs text-dim">Build yours to apply</span>
+          <span className="text-xs text-dim">Choose yours to apply</span>
         </span>
       </Link>
     );
@@ -30,7 +30,7 @@ function RoadieMini({ pet }: { pet: PetSpec | null }) {
       <span className="flex min-w-0 flex-col leading-none">
         <span className="truncate text-sm font-medium text-fg">{pet.name}</span>
         <span className="text-xs text-dim">
-          {STAGE_LABEL[stageFor(pet.xp)]}, {pet.xp} xp
+          {pet.traits.guide ? "Your guide" : STAGE_LABEL[stageFor(pet.xp)]}, {pet.xp} xp
         </span>
       </span>
     </Link>
@@ -53,7 +53,7 @@ function commandsFor(pet: PetSpec | null, applications: MyApplication[]): Comman
   return [
     {
       id: "roadie",
-      label: pet ? `Visit ${pet.name}` : "Build your Roadie",
+      label: pet ? `Visit ${pet.name}` : "Choose your guide",
       hint: pet ? STAGE_LABEL[stageFor(pet.xp)] : "Takes two minutes",
       href: "/app/roadie",
       group: "Roadie",

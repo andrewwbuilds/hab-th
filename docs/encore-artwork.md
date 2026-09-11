@@ -1,0 +1,19 @@
+# Encore illustrated landing artwork
+
+Generated with the built-in image_gen tool. These are new illustrations; the supplied portraits were identity references, not filter inputs.
+
+## Assets
+
+- `public/art/encore-palace.png`: Palace of Fine Arts scene with Eddy, Gary and Eric integrated into the illustration.
+- `public/art/encore-guides.png`: matching three-panel character sheet, rendered through CSS positions without pixelating the supplied photographs.
+
+The scene is a stylized San Francisco composition, not a literal geographic panorama. The landing page adds motion and speech bubbles in HTML/CSS so they remain readable and controllable. Existing saved guide IDs map to the illustrated sheet. Uploaded selfies retain the user-controlled pixel treatment.
+
+## Hero prompt
+
+Use case: stylized-concept. Generate a new wide 3:2 pixel-art landscape illustration for the Encore hackathon website, not a website mockup. Reference images 1,2,3 are identity and clothing guides for three real men: Eddy (Edward), Gary, Eric in that order. Reference 4 is ONLY the level of charming detailed pixel-art craftsmanship; do not copy its garden, composition, people or green palette. New setting: Palace of Fine Arts in San Francisco at blue hour, recognizable monumental rotunda and lagoon, warm amber columns reflected in dark indigo water, blue lavender sky, elegant charcoal shadows. Encore palette #08090a charcoal, #5e6ad2 periwinkle, #8b93ea lavender, restrained amber light. Beautiful handcrafted pixel illustration with deliberate visible square pixels, subtle dithering, warm anime-inspired illustrated faces, not photographs with a mosaic filter. All three men organically drawn INTO the foreground scene as friends building a project on a laptop atop broad stone steps at the lagoon. Eddy left of group at x49% y69%, black middle-parted hair, white tee and navy jacket over shoulders, a small teddy bear next to him. Gary center at x66% y68%, smiling with navy Cal baseball cap and navy quarter zip. Eric right at x81% y69%, short black hair and charcoal puffer with teal hoodie. Three clearly distinct characters with recognizable faces, medium full-body illustration, seated on steps conversing, natural proportions, eyes open. Scenic composition: rotunda in upper left/center, expansive lagoon left, friends across lower right half. Room over each person's head for HTML speech bubbles; DO NOT draw any speech bubbles or text, labels, buttons, logos, interface, watermarks. Entire scene edge to edge, atmospheric, inviting, no photo cutouts.
+
+## Character sheet prompt
+
+Create one wide 3:1 sprite-sheet illustration with THREE EQUAL SQUARE PANELS horizontally, each 512x512 equivalent, no gaps, no borders, no text or labels. Match precisely the handcrafted pixel-art style and characters in the reference image. All backgrounds a solid flat dark charcoal #151620. Left panel: Eddy, the left young man with middle parted black hair, white shirt and navy jacket over shoulders, holding small teddy bear, friendly smile, head and upper torso. Center panel: Gary, center young man wearing navy Cal cap and navy quarter zip, smiling, head and upper torso. Right panel: Eric, right young man with short black hair wearing charcoal puffer over teal hoodie, head and upper torso, slight friendly smile. These must be ILLUSTRATED character avatars, not photos or pixel-filtered photos. Preserve their distinctive faces and outfits from the reference. Each character centered in its own equal square, face at y35%, entire hair visible with 10% top padding, upper torso through bottom. Clean readable detailed pixel clusters, subtle blue hour lavender rim lights, no extra people, no scene background, no words other than Cal on the cap. This sheet is used as three separate CSS background crops so each person must stay completely within their own third.
+

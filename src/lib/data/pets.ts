@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { applyXp, derivePet, XP_EVENTS, type XpEventKey } from "@/lib/pet/engine";
 import type { ActionResult, MusicProfile, PetSpec } from "@/lib/types";
-import { musicProfileSchema, petFromRow, petToRow } from "@/lib/data/pet-row";
+import { guideSchema, musicProfileSchema, petFromRow, petToRow } from "@/lib/data/pet-row";
 import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
 import { isTrack } from "@/lib/types";
 import { getCurrentUser } from "@/lib/data/profiles";
@@ -137,4 +137,24 @@ export async function renamePet(name: string): Promise<ActionResult<PetSpec>> {
 
   revalidateRoadie();
   return { ok: true, data: petFromRow(row) };
+}
+
+export async function saveGuide(name: string, guide: NonNullable<PetSpec["traits"]["guide"]>): Promise<ActionResult<PetSpec>> {
+  const parsed = guideSchema.safeParse(guide);
+  const parsedName = nameSchema.safeParse(name);
+  if (!parsed.success || !parsedName.success) return { ok: false, error: "Choose a guide and give it a name." };
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Sign in to save your guide." };
+  const supabase = await createClient();
+  const { data: existing, error: readError } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
+  if (readError) return { ok: false, error: "Could not load your guide. Try again." };
+  const base = existing ? petFromRow(existing) : applyXp(derivePet({ genres: ["indie"], energy: 3, mood: 4, era: "20s", hoursPerDay: "1to3", discovery: "friends", topArtist: "Your next favorite", anthem: "" }), "petCreated");
+  const spec = { ...base, name: parsedName.data, traits: { ...base.traits, guide: parsed.data } };
+  const row = petToRow(spec);
+  const { error } = existing
+    ? await supabase.from("pets").update(row).eq("user_id", user.id)
+    : await supabase.from("pets").insert({ ...row, user_id: user.id });
+  if (error) return { ok: false, error: "Could not save your guide. Try again." };
+  revalidateRoadie();
+  return { ok: true, data: spec };
 }

@@ -115,15 +115,14 @@ export default async function ApplicantHomePage() {
         <div className="flex flex-col gap-6">
           <Card className="flex flex-col items-start gap-3">
             <div className="flex flex-col gap-1">
-              <h2 className="text-md font-medium text-fg">Build your Roadie first</h2>
+              <h2 className="text-md font-medium text-fg">Choose your guide first</h2>
               <p className="max-w-lg text-base text-muted">
-                Your Roadie is a companion built from your music taste. It sits with you through every application,
-                explains what each question is really asking, and grows as you make progress. It takes about two
-                minutes and unlocks the tracks below.
+                Choose Eddy, Gary, or Eric, draw your own character, or take a slightly pixelated selfie.
+                Your guide helps you through each question and keeps you company as you apply.
               </p>
             </div>
             <Button href="/app/roadie" variant="primary" size="md" icon={<ArrowRight />}>
-              Build your Roadie
+              Choose your guide
             </Button>
           </Card>
           <section className="flex flex-col gap-2">

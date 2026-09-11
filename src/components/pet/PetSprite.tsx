@@ -1,3 +1,4 @@
+import { PixelPortrait } from "./PixelPortrait";
 import type { CSSProperties, ReactNode } from "react";
 import type { Accessory, PetMood, PetPalette, PetSpec, Species, Stage } from "@/lib/types";
 import { SPECIES_LABEL, STAGE_THRESHOLDS, stageFor } from "@/lib/pet/engine";
@@ -487,6 +488,7 @@ function Grown({ spec, mood, band }: { spec: PetSpec; mood: PetMood; band: EyeBa
 const SVG_STYLE: CSSProperties = { display: "block", overflow: "visible" };
 
 export function PetSprite({ spec, size = 56, mood = "idle", className }: PetSpriteProps) {
+  if (spec.traits.guide) return <PixelPortrait src={spec.traits.guide.image} name={spec.name} size={size} className={className} />;
   const stage = stageFor(spec.xp);
   const band = eyeBand(spec.music.mood);
   const label = `${spec.name}, a ${SPECIES_LABEL[spec.species].toLowerCase()} (${stage})`;

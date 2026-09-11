@@ -117,6 +117,7 @@ export interface PetPalette {
 }
 
 export interface PetTraits {
+  guide?: { kind: "eddy" | "gary" | "eric" | "drawing" | "photo"; image: string };
   tone: Tone;
   chattiness: Chattiness;
   accessory: Accessory;

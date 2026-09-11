@@ -20,7 +20,15 @@ const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 export const paletteSchema = z.object({ primary: hex, secondary: hex, accent: hex });
 
+export const guideSchema = z.object({
+  kind: z.enum(["eddy", "gary", "eric", "drawing", "photo"]),
+  image: z.string().max(400_000).regex(/^(\/guides\/(eddy|gary|eric)\.png|data:image\/png;base64,[A-Za-z0-9+/=]+)$/),
+}).refine((guide) => ["drawing", "photo"].includes(guide.kind)
+  ? guide.image.startsWith("data:image/png;base64,")
+  : guide.image === `/guides/${guide.kind}.png`, "Invalid guide image");
+
 export const traitsSchema = z.object({
+  guide: guideSchema.optional(),
   tone: z.enum(["hype", "chill", "moody", "warm"]),
   chattiness: z.enum(["terse", "normal", "talkative"]),
   accessory: z.enum(["headphones", "cassette", "vinyl", "ipod"]),

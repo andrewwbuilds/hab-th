@@ -38,8 +38,8 @@ export function RoadieCard({ spec, compact = false, className }: RoadieCardProps
             <span className="truncate text-md font-medium text-fg">{spec.name}</span>
             <span className="shrink-0 text-sm text-dim">{TONE_LABEL[spec.traits.tone]}</span>
           </div>
-          <span className="text-sm text-muted">{SPECIES_LABEL[spec.species]}</span>
-          <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+          <span className="text-sm text-muted">{spec.traits.guide ? "Your application guide" : SPECIES_LABEL[spec.species]}</span>
+          {!spec.traits.guide && <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
             <dt className="text-dim">Top artist</dt>
             <dd className="truncate text-fg">{music.topArtist}</dd>
             {anthem && (
@@ -48,10 +48,10 @@ export function RoadieCard({ spec, compact = false, className }: RoadieCardProps
                 <dd className="truncate text-fg">{anthem}</dd>
               </>
             )}
-          </dl>
+          </dl>}
         </div>
       </div>
-      {!compact && <ProgressBar value={progress.value} max={progress.max} label={progress.label} />}
+      {!compact && <ProgressBar value={progress.value} max={progress.max} label={spec.traits.guide ? `${spec.xp} xp earned together` : progress.label} />}
     </Card>
   );
 }
