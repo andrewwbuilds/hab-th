@@ -95,7 +95,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       className="overflow-hidden"
     >
       <div className="flex h-full">
-        <div className="min-w-0 flex-1 overflow-y-auto px-8 py-6">
+        <div className="min-w-0 flex-1 overflow-y-auto overscroll-none px-8 py-6">
           <div className="mx-auto flex max-w-[720px] flex-col gap-8">
             <header className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-3">
@@ -139,7 +139,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
           </div>
         </div>
 
-        <aside className="flex w-[280px] shrink-0 flex-col gap-5 overflow-y-auto border-l border-border px-4 py-5">
+        <aside className="flex w-[280px] shrink-0 flex-col gap-5 overflow-y-auto overscroll-none border-l border-border px-4 py-5">
           <Property label="Status">
             <StatusPanel applicationId={application.id} status={application.status} applicantName={name} />
           </Property>

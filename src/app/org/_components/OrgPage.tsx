@@ -13,7 +13,7 @@ export function OrgPage({ breadcrumbs, actions, className, children }: OrgPagePr
   return (
     <>
       <Topbar breadcrumbs={breadcrumbs} actions={actions} />
-      <main className={cn("relative min-h-0 flex-1 overflow-y-auto", className)}>{children}</main>
+      <main className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-none", className)}>{children}</main>
     </>
   );
 }
