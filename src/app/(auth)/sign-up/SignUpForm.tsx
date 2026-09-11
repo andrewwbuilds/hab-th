@@ -26,10 +26,10 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
   const selectedTrack = trackFromParam(values.track, initialTrack);
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-lg font-medium text-fg">Create account</h1>
-        <p className="text-base text-muted">One account covers every track you apply to.</p>
+    <form action={action} className="flex flex-col gap-5" noValidate>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-medium text-fg">Create account</h1>
+        <p className="text-md text-muted">One account covers every track you apply to.</p>
       </div>
 
       {next && <input type="hidden" name="next" value={next} />}
@@ -39,6 +39,8 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
           id="fullName"
           name="fullName"
           autoComplete="name"
+          size="md"
+          className="h-9"
           placeholder="Ada Lovelace"
           defaultValue={values.fullName}
           invalid={Boolean(errors.fullName)}
@@ -51,6 +53,8 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
           name="email"
           type="email"
           autoComplete="email"
+          size="md"
+          className="h-9"
           placeholder="you@berkeley.edu"
           defaultValue={values.email}
           invalid={Boolean(errors.email)}
@@ -63,6 +67,8 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
           name="password"
           type="password"
           autoComplete="new-password"
+          size="md"
+          className="h-9"
           invalid={Boolean(errors.password)}
           required
         />
@@ -88,6 +94,8 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
           id="inviteCode"
           name="inviteCode"
           autoComplete="off"
+          size="md"
+          className="h-9"
           defaultValue={values.inviteCode}
           invalid={Boolean(errors.inviteCode)}
         />
@@ -99,7 +107,7 @@ export function SignUpForm({ next, initialTrack }: SignUpFormProps) {
         </p>
       )}
 
-      <Button type="submit" variant="primary" size="md" loading={pending} className="w-full">
+      <Button type="submit" variant="primary" size="md" loading={pending} className="mt-1 h-10 w-full text-md">
         Create account
       </Button>
 

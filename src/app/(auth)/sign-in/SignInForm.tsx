@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useRef } from "react";
+import { ArrowRight } from "lucide-react";
 import { Button, Field, Input } from "@/components/ui";
 import { signIn, type AuthFormState } from "../actions";
 
@@ -11,8 +12,8 @@ interface SignInFormProps {
 }
 
 const DEMO_ACCOUNTS = [
-  { label: "Applicant demo", email: "maya@demo.encore.dev" },
-  { label: "Organizer demo", email: "organizer@demo.encore.dev" },
+  { label: "Applicant demo", hint: "See the application as Maya", email: "maya@demo.encore.dev" },
+  { label: "Organizer demo", hint: "Review and grade applications", email: "organizer@demo.encore.dev" },
 ] as const;
 
 export function SignInForm({ next, demoPassword }: SignInFormProps) {
@@ -31,10 +32,10 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
   }
 
   return (
-    <form ref={formRef} action={action} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-lg font-medium text-fg">Sign in</h1>
-        <p className="text-base text-muted">Pick up where you and your Roadie left off.</p>
+    <form ref={formRef} action={action} className="flex flex-col gap-5" noValidate>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-medium text-fg">Sign in</h1>
+        <p className="text-md text-muted">Pick up where you and your Roadie left off.</p>
       </div>
 
       {next && <input type="hidden" name="next" value={next} />}
@@ -46,6 +47,8 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
           type="email"
           autoComplete="email"
           placeholder="you@berkeley.edu"
+          size="md"
+          className="h-9"
           defaultValue={state.values?.email}
           invalid={Boolean(state.fieldErrors?.email)}
           required
@@ -57,6 +60,8 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
           name="password"
           type="password"
           autoComplete="current-password"
+          size="md"
+          className="h-9"
           invalid={Boolean(state.fieldErrors?.password)}
           required
         />
@@ -68,7 +73,7 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
         </p>
       )}
 
-      <Button type="submit" variant="primary" size="md" loading={pending} className="w-full">
+      <Button type="submit" variant="primary" size="md" loading={pending} className="mt-1 h-10 w-full text-md">
         Sign in
       </Button>
 
@@ -80,19 +85,23 @@ export function SignInForm({ next, demoPassword }: SignInFormProps) {
       </p>
 
       {demoPassword && (
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <p className="text-sm text-muted">Demo accounts</p>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-3 border-t border-border pt-5">
+          <p className="text-sm text-muted">Or try a demo account</p>
+          <div className="flex flex-col gap-2">
             {DEMO_ACCOUNTS.map((account) => (
-              <Button
+              <button
                 key={account.email}
                 type="button"
-                variant="secondary"
                 disabled={pending}
                 onClick={() => fillDemo(account.email)}
+                className="flex h-12 w-full items-center justify-between gap-3 rounded-control border border-border-strong bg-panel px-3.5 text-left transition-colors duration-120 ease-out-quick hover:border-[#35363b] hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {account.label}
-              </Button>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-base font-medium text-fg">{account.label}</span>
+                  <span className="truncate text-sm text-muted">{account.hint}</span>
+                </span>
+                <ArrowRight aria-hidden className="size-4 shrink-0 text-dim" />
+              </button>
             ))}
           </div>
         </div>
