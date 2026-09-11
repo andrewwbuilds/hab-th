@@ -51,7 +51,7 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | anon/publishable key; RLS does the access control |
-| `SUPABASE_SERVICE_ROLE_KEY` | server only | used only by the seed script and the organizer invite grant |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | used by sign-up (creates confirmed users), the organizer invite grant and the seed script |
 | `ORGANIZER_INVITE_CODE` | server only | entered on sign-up to get an organizer account |
 | `SEED_PASSWORD` | server, and the sign-in page when `DEMO_LOGIN=1` | password for the seeded demo accounts; treat it as public |
 | `DEMO_LOGIN` | server | `1` shows one-click demo sign-in buttons on the sign-in page; unset to hide them |
