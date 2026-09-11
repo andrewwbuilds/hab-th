@@ -142,6 +142,21 @@ const SCHOOL =
 const WORK = /\b[Ii] (?:work|am|'m)(?: at| for)?\s+([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*)*)(?:\s+as\s+(?:an?\s+)?([^,.;]+?))?(?=[,.;]|\s+and\b|$)/;
 const FIRST_HACKATHON = /\b(?:my|its|it's|this is my)\s+first\s+(?:hackathon|one|time)\b/i;
 const NOT_FIRST = /\bnot my first\b/i;
+/** Link fields whose host is known, so a bare username is enough. */
+const HOSTS: Record<string, string> = {
+  github: "https://github.com/",
+  linkedin: "https://www.linkedin.com/in/",
+  devpost: "https://devpost.com/",
+};
+/** "my github is andrew", "linkedin: andrew-wang", "github username andrew". */
+const HANDLE = /\b(github|linkedin|devpost)\b(?:\s+(?:username|handle|user|profile|name))?\s*(?:is|:|=)?\s*@?([a-z0-9][a-z0-9_.-]{1,60})\b/gi;
+const HANDLE_NOISE = /^(?:is|my|the|link|url|profile|page|username|handle|account|at|on)$/i;
+/** "expected May 2027", "Class of 2027", "graduating 2026": the year that matters on a resume. */
+const EXPECTED_YEAR = /\b(?:expected|anticipated|class of|graduat\w*)\b[^\d\n]{0,24}((?:19|20)\d\d)\b/i;
+/** A line that names a school, for a resume with no "I go to" phrasing. */
+const SCHOOL_NAME =
+  /\b((?:University|College|Institute|School)[ \t]+of[ \t]+[A-Z][\w&.'-]*(?:,?[ \t]+[A-Z][\w&.'-]*){0,4}|[A-Z][\w&.'-]*(?:[ \t]+[A-Z][\w&.'-]*){0,4}[ \t]+(?:University|College|Institute|Polytechnic|Tech))\b/;
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
 
 function urlFieldFor(fields: FieldDef[], url: string): FieldDef | undefined {
   const lower = url.toLowerCase();
@@ -188,14 +203,25 @@ export function extractFills(definition: FormDefinition, message: string, option
   const raw: { fieldKey: string; value: unknown }[] = [];
   const byKey = (key: string) => fields.find((field) => field.key === key);
 
-  for (const match of message.match(URLS) ?? []) {
+  // An email address is not a portfolio link.
+  const noEmail = message.replace(EMAIL, " ");
+  for (const match of noEmail.match(URLS) ?? []) {
     const field = urlFieldFor(fields, match);
     if (field) raw.push({ fieldKey: field.key, value: match });
   }
-  const scrubbed = message.replace(URLS, " ");
+  const scrubbed = noEmail.replace(URLS, " ");
+  for (const match of scrubbed.matchAll(HANDLE)) {
+    const host = match[1]?.toLowerCase() ?? "";
+    const handle = match[2] ?? "";
+    const base = HOSTS[host];
+    if (!base || HANDLE_NOISE.test(handle) || !byKey(host)) continue;
+    raw.push({ fieldKey: host, value: `${base}${handle}` });
+  }
+  const expected = scrubbed.match(EXPECTED_YEAR)?.[1];
   const years = (scrubbed.match(/\b(19|20)\d\d\b/g) ?? []).map(Number);
-  // A resume lists job dates too; the latest year in range is the graduation year far more often than the first.
+  // A resume lists job dates too; a stated graduation year wins, then the latest year in range.
   if (options.statement) years.sort((a, b) => b - a);
+  if (expected) years.unshift(Number(expected));
   for (const value of years) {
     const field = fields.find(
       (candidate) => candidate.type === "number" && (candidate.min ?? -Infinity) <= value && value <= (candidate.max ?? Infinity),
@@ -204,8 +230,8 @@ export function extractFills(definition: FormDefinition, message: string, option
   }
   const pronouns = scrubbed.match(PRONOUNS);
   if (pronouns && byKey("pronouns")) raw.push({ fieldKey: "pronouns", value: pronounSet(pronouns) });
-  const school = scrubbed.match(SCHOOL);
-  if (school?.[1] && byKey("school")) raw.push({ fieldKey: "school", value: school[1].replace(/[,.]$/, "") });
+  const school = scrubbed.match(SCHOOL)?.[1] ?? (options.statement ? scrubbed.match(SCHOOL_NAME)?.[1] : undefined);
+  if (school && byKey("school")) raw.push({ fieldKey: "school", value: school.replace(/[,.]$/, "") });
   const work = scrubbed.match(WORK);
   if (work?.[1] && byKey("company") && !/^(?:from|at|a|an)$/i.test(work[1])) raw.push({ fieldKey: "company", value: work[1] });
   if (work?.[2] && byKey("role")) raw.push({ fieldKey: "role", value: work[2].trim() });
@@ -296,7 +322,15 @@ export function answerFor(field: FieldDef, message: string): AnswerValue | undef
     }
     case "url": {
       const link = text.match(URLS)?.[0];
-      return coerceFill(field, link ?? spokenUrl(text.replace(LEAD_IN, "")));
+      if (link) return coerceFill(field, link);
+      const stripped = text.replace(LEAD_IN, "").trim();
+      // "github dot com slash aw" is a spoken address; "my github is Andrew" is a handle.
+      if (/\bdot\b/i.test(stripped)) return coerceFill(field, spokenUrl(stripped));
+      const handle = stripped.replace(/^(?:my\s+)?(?:github|linkedin|devpost)\s*(?:is|:)?\s*/i, "").replace(/^@/, "").trim();
+      const base = HOSTS[field.key];
+      // "Andrew" for the GitHub field is github.com/Andrew; a bare word for a portfolio is nothing.
+      if (base && /^[a-z0-9][a-z0-9_.-]{1,60}$/i.test(handle)) return coerceFill(field, `${base}${handle}`);
+      return coerceFill(field, spokenUrl(handle));
     }
     case "select": {
       const values = optionsMentioned(field, lower);

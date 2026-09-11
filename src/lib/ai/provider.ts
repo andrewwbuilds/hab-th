@@ -1,15 +1,18 @@
 import "server-only";
 import type { PetSpec } from "@/lib/types";
 import { GUIDE_JSON_SCHEMA, parseGuideResponse, type GuideInput, type GuideResponse } from "@/lib/ai/guide";
-import { resolveProvider, type ProviderConfig } from "@/lib/ai/config";
+import { resolveProviders, type ProviderConfig } from "@/lib/ai/config";
 import { openrouterHeaders, retryable } from "@/lib/ai/http";
 import { offlineGuide } from "@/lib/ai/offline";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { RESUME_JSON_SCHEMA, buildResumePrompt, offlineResume, parseResumeResponse, type ResumePromptInput } from "@/lib/ai/resume";
 
-const TOTAL_TIMEOUT_MS = 20_000;
+const CHAT_BUDGET_MS = 20_000;
+/** A resume is a longer prompt and a longer answer, and the route allows a minute. */
+const RESUME_BUDGET_MS = 45_000;
 const MIN_ATTEMPT_MS = 1_500;
 const MAX_OUTPUT_TOKENS = 700;
+const RESUME_OUTPUT_TOKENS = 1_400;
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -38,6 +41,7 @@ async function chat(
   messages: ChatMessage[],
   timeoutMs: number,
   format: Record<string, unknown>,
+  maxTokens: number,
 ): Promise<Attempt> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -49,7 +53,7 @@ async function chat(
         model,
         messages,
         temperature: 0.4,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: maxTokens,
         response_format: format,
       }),
       signal: controller.signal,
@@ -103,32 +107,45 @@ function offline(input: GuideInput): GuideResponse {
   });
 }
 
-/** Tries each model in turn until one answers within the budget. Undefined means every attempt failed. */
-async function complete(
-  config: ProviderConfig,
-  messages: ChatMessage[],
-  format: Record<string, unknown>,
-  label: string,
-): Promise<string | undefined> {
-  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
-  for (const model of config.models) {
-    const remaining = deadline - Date.now();
-    if (remaining < MIN_ATTEMPT_MS) break;
-    const attempt = await chat(config, model, messages, remaining, format);
-    if (attempt.ok) return attempt.text;
-    console.warn(`[${label}] ${config.name}/${model} failed: ${attempt.reason}`);
-    if (!attempt.retry) break;
+interface Job {
+  schemaName: string;
+  schema: JsonSchema;
+  label: string;
+  budgetMs: number;
+  maxTokens: number;
+}
+
+/**
+ * Tries every model of every keyed provider, primary first, until one answers within the budget.
+ * A rate-limited model fails in well under a second, so a long chain costs little. Undefined means
+ * every attempt failed and the caller should answer offline.
+ */
+async function complete(providers: ProviderConfig[], messages: ChatMessage[], job: Job): Promise<string | undefined> {
+  const deadline = Date.now() + job.budgetMs;
+  for (const config of providers) {
+    const format = responseFormat(config, job.schemaName, job.schema);
+    for (const model of config.models) {
+      const remaining = deadline - Date.now();
+      if (remaining < MIN_ATTEMPT_MS) return undefined;
+      const attempt = await chat(config, model, messages, remaining, format, job.maxTokens);
+      if (attempt.ok) return attempt.text;
+      console.warn(`[${job.label}] ${config.name}/${model} failed: ${attempt.reason}`);
+      if (!attempt.retry) break;
+    }
   }
   return undefined;
 }
+
+const GUIDE_JOB: Job = { schemaName: "roadie_guide", schema: GUIDE_JSON_SCHEMA, label: "assistant", budgetMs: CHAT_BUDGET_MS, maxTokens: MAX_OUTPUT_TOKENS };
+const RESUME_JOB: Job = { schemaName: "roadie_resume", schema: RESUME_JSON_SCHEMA, label: "resume", budgetMs: RESUME_BUDGET_MS, maxTokens: RESUME_OUTPUT_TOKENS };
 
 /**
  * Asks the configured provider, retrying once on the fallback model, and answers from the
  * offline guide when there is no key or every attempt fails. Never throws.
  */
 export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
-  const config = resolveProvider(process.env);
-  if (config.name === "offline") return offline(input);
+  const providers = resolveProviders(process.env);
+  if (providers.length === 0) return offline(input);
 
   const system = buildSystemPrompt({
     definition: input.definition,
@@ -139,19 +156,19 @@ export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
     pet: input.pet,
   });
   const messages: ChatMessage[] = [{ role: "system", content: system }, ...input.messages];
-  const text = await complete(config, messages, responseFormat(config, "roadie_guide", GUIDE_JSON_SCHEMA), "assistant");
+  const text = await complete(providers, messages, GUIDE_JOB);
   return text ? parseGuideResponse(text, input.definition) : offline(input);
 }
 
 /** Reads a resume into fills and essay topics, falling back to the regex reader. Never throws. */
 export async function askResume(input: ResumePromptInput): Promise<GuideResponse> {
-  const config = resolveProvider(process.env);
-  if (config.name === "offline") return offlineResume(input.definition, input.answers, input.resume);
+  const providers = resolveProviders(process.env);
+  if (providers.length === 0) return offlineResume(input.definition, input.answers, input.resume);
   const messages: ChatMessage[] = [
     { role: "system", content: buildResumePrompt(input) },
     { role: "user", content: "Read the resume above. Fill what it supports and suggest essay topics." },
   ];
-  const text = await complete(config, messages, responseFormat(config, "roadie_resume", RESUME_JSON_SCHEMA), "resume");
+  const text = await complete(providers, messages, RESUME_JOB);
   return text
     ? parseResumeResponse(text, input.definition, input.answers, input.resume)
     : offlineResume(input.definition, input.answers, input.resume);

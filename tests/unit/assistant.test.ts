@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_IMAGE_MODELS, IMAGE_ENDPOINT, resolveImageProvider, resolveProvider } from "../../src/lib/ai/config";
+import { DEFAULT_IMAGE_MODELS, DEFAULT_MODELS, IMAGE_ENDPOINT, resolveImageProvider, resolveProvider, resolveProviders } from "../../src/lib/ai/config";
 import { LIMIT_PER_WINDOW, LIMIT_WINDOW_MS, allowRequest, resetLimiter } from "../../src/lib/ai/limiter";
 import { coerceFill, fillIntro, isEssay, sanitizeFills } from "../../src/lib/ai/fill";
-import { essayCoaching, parseGuideResponse, sanitizeTopics } from "../../src/lib/ai/guide";
+import { MAX_REPLY_CHARS, essayCoaching, parseGuideResponse, sanitizeTopics } from "../../src/lib/ai/guide";
 import { answerFor, askLine, exampleFor, extractFills, nextQuestion, offlineGuide, pickField } from "../../src/lib/ai/offline";
 import { offlineResume, parseResumeResponse, resumeHeadlines } from "../../src/lib/ai/resume";
 import { PORTRAIT_PROMPT, buildPortraitRequest, parsePortraitResponse } from "../../src/lib/ai/portrait";
@@ -195,6 +195,13 @@ describe("offline fill extractor", () => {
     expect(byKey.proud_project).toBeUndefined();
   });
 
+  it("turns a stated handle into a link without being asked", () => {
+    const fills = extractFills(hacker, "my github is andrewwbuilds and linkedin: andrew-wang");
+    const byKey = Object.fromEntries(fills.map((fill) => [fill.fieldKey, fill.value]));
+    expect(byKey.github).toBe("https://github.com/andrewwbuilds");
+    expect(byKey.linkedin).toBe("https://www.linkedin.com/in/andrew-wang");
+  });
+
   it("fills nothing for questions and greetings", () => {
     expect(extractFills(hacker, "what does solo mean?")).toEqual([]);
     expect(extractFills(hacker, "hello")).toEqual([]);
@@ -365,6 +372,14 @@ describe("walk-through", () => {
     const link = offlineGuide({ definition: hacker, answers: {}, asking: "github", message: "github dot com slash aw" });
     expect(link.action).toEqual({ type: "fill", fields: [{ fieldKey: "github", value: "https://github.com/aw" }] });
 
+    const handle = offlineGuide({ definition: hacker, answers: {}, asking: "github", message: "my GitHub is Andrew" });
+    expect(handle.action).toEqual({ type: "fill", fields: [{ fieldKey: "github", value: "https://github.com/Andrew" }] });
+    const linkedin = offlineGuide({ definition: hacker, answers: {}, asking: "linkedin", message: "@andrew-wang" });
+    expect(linkedin.action).toEqual({ type: "fill", fields: [{ fieldKey: "linkedin", value: "https://www.linkedin.com/in/andrew-wang" }] });
+    const portfolio = offlineGuide({ definition: hacker, answers: {}, asking: "portfolio", message: "Andrew" });
+    expect(portfolio.action).toBeUndefined();
+    expect(portfolio.ask).toEqual({ fieldKey: "portfolio" });
+
     const size = offlineGuide({ definition: hacker, answers: {}, asking: "shirt_size", message: "medium" });
     expect(size.action).toEqual({ type: "fill", fields: [{ fieldKey: "shirt_size", value: "m" }] });
 
@@ -390,6 +405,15 @@ describe("walk-through", () => {
     expect(essay.action).toBeUndefined();
     expect(essay.message).toMatch(/do not fill essays/);
     expect(essay.ask?.fieldKey).not.toBe(firstEssay.key);
+  });
+
+  it("clips a reply that carries the model's reasoning", () => {
+    const long = `Set GitHub. LinkedIn? ${"The user said something so we reason about it at length. ".repeat(20)}`;
+    const raw = JSON.stringify({ message: long, action: null, ask: { fieldKey: "linkedin" } });
+    const response = parseGuideResponse(raw, hacker);
+    expect(response.message.length).toBeLessThanOrEqual(MAX_REPLY_CHARS);
+    expect(response.message).toMatch(/^Set GitHub\. LinkedIn\?/);
+    expect(response.ask).toEqual({ fieldKey: "linkedin" });
   });
 
   it("keeps a model ask only for a real field", () => {
@@ -464,6 +488,14 @@ describe("resume", () => {
     expect(byKey.github).toBe("https://github.com/aw");
     expect(byKey.linkedin).toBe("https://linkedin.com/in/aw");
     expect(byKey.graduation_year).toBe(2027);
+    const stated = offlineResume(hacker, {}, "University of California, Berkeley\nB.S. EECS, expected May 2026\nIntern 2027 Corp");
+    const statedByKey = Object.fromEntries((stated.action?.type === "fill" ? stated.action.fields : []).map((fill) => [fill.fieldKey, fill.value]));
+    expect(statedByKey.graduation_year).toBe(2026);
+    expect(statedByKey.school).toBe("University of California, Berkeley");
+    const headed = offlineResume(hacker, {}, "EDUCATION\nUniversity of Washington\nme@example.com");
+    const headedByKey = Object.fromEntries((headed.action?.type === "fill" ? headed.action.fields : []).map((fill) => [fill.fieldKey, fill.value]));
+    expect(headedByKey.school).toBe("University of Washington");
+    expect(headedByKey.portfolio).toBeUndefined();
     expect(byKey.skills).toEqual(expect.arrayContaining(["frontend", "backend"]));
     expect(response.topics?.length).toBeGreaterThan(0);
     expect(response.topics?.every((topic) => fields.find((field) => field.key === topic.fieldKey)?.essay)).toBe(true);
@@ -545,6 +577,23 @@ describe("portrait request and response", () => {
   });
 });
 
+describe("resolveProviders", () => {
+  it("lists the primary first and the other keyed provider after it", () => {
+    const both = resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "openrouter" });
+    expect(both.map((provider) => provider.name)).toEqual(["openrouter", "groq"]);
+    expect(both[0]?.models).toEqual(DEFAULT_MODELS.openrouter);
+    expect(both[1]?.models).toEqual(DEFAULT_MODELS.groq);
+    expect(resolveProviders({ GROQ_API_KEY: "g" }).map((provider) => provider.name)).toEqual(["groq"]);
+    expect(resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_PROVIDER: "offline" })).toEqual([]);
+  });
+
+  it("applies AI_MODEL to the primary only and keeps the defaults behind it", () => {
+    const [primary, other] = resolveProviders({ GROQ_API_KEY: "g", OPENROUTER_API_KEY: "o", AI_MODEL: "custom/model" });
+    expect(primary?.models).toEqual(["custom/model", ...DEFAULT_MODELS.groq]);
+    expect(other?.models).toEqual(DEFAULT_MODELS.openrouter);
+  });
+});
+
 describe("resolveProvider", () => {
   it("is offline without keys and honours AI_PROVIDER when its key exists", () => {
     expect(resolveProvider({}).name).toBe("offline");
@@ -558,11 +607,8 @@ describe("resolveProvider", () => {
   });
 
   it("puts AI_MODEL first and keeps the default as the fallback", () => {
-    expect(resolveProvider({ GROQ_API_KEY: "g", AI_MODEL: "custom" }).models).toEqual([
-      "custom",
-      "openai/gpt-oss-120b",
-    ]);
-    expect(resolveProvider({ GROQ_API_KEY: "g" }).models).toEqual(["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
+    expect(resolveProvider({ GROQ_API_KEY: "g", AI_MODEL: "custom" }).models).toEqual(["custom", ...DEFAULT_MODELS.groq]);
+    expect(resolveProvider({ GROQ_API_KEY: "g" }).models).toEqual(["openai/gpt-oss-120b", "qwen/qwen3.8-27b"]);
   });
 });
 

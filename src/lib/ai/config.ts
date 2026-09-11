@@ -12,9 +12,15 @@ const ENDPOINTS: Record<Exclude<ProviderName, "offline">, string> = {
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
 };
 
-export const DEFAULT_MODELS: Record<Exclude<ProviderName, "offline">, [string, string]> = {
-  groq: ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
-  openrouter: ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free"],
+/**
+ * Tried in order until one answers. The free OpenRouter models share an upstream pool and are often
+ * rate-limited, so the chain is long; every model here answered a JSON fill in a few seconds when picked.
+ * Left out on purpose: Groq's gpt-oss-20b and qwen3.6 fail strict JSON validation, and OpenRouter's
+ * nemotron-3-super writes its reasoning into the message field and takes up to half a minute.
+ */
+export const DEFAULT_MODELS: Record<Exclude<ProviderName, "offline">, string[]> = {
+  groq: ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"],
+  openrouter: ["google/gemma-4-31b-it:free", "nex-agi/nex-n2.5-pro:free", "poolside/laguna-s-2.1:free"],
 };
 
 export type ProviderEnv = Readonly<Record<string, string | undefined>>;
@@ -56,10 +62,30 @@ export function resolveProvider(env: ProviderEnv): ProviderConfig {
   const apiKey = name === "groq" ? groqKey : openrouterKey;
   if (!apiKey) return OFFLINE;
 
-  const [primary, fallback] = DEFAULT_MODELS[name];
-  const override = env.AI_MODEL?.trim();
-  const models = override && override !== primary ? [override, primary] : [primary, fallback];
-  return { name, apiKey, endpoint: ENDPOINTS[name], models };
+  return { name, apiKey, endpoint: ENDPOINTS[name], models: modelsFor(name, env.AI_MODEL) };
+}
+
+function modelsFor(name: Exclude<ProviderName, "offline">, override: string | undefined): string[] {
+  const defaults = DEFAULT_MODELS[name];
+  const chosen = override?.trim();
+  return chosen ? [chosen, ...defaults.filter((model) => model !== chosen)] : [...defaults];
+}
+
+/**
+ * Every provider worth trying, primary first. When the primary's models are all down (a shared free pool
+ * rate-limited upstream, say) the other keyed provider answers instead of the regex fallback. AI_MODEL only
+ * applies to the primary. AI_PROVIDER=offline turns the list off.
+ */
+export function resolveProviders(env: ProviderEnv): ProviderConfig[] {
+  const primary = resolveProvider(env);
+  if (primary.name === "offline") return [];
+  const others: ProviderConfig[] = [];
+  for (const name of ["groq", "openrouter"] as const) {
+    if (name === primary.name) continue;
+    const apiKey = (name === "groq" ? env.GROQ_API_KEY : env.OPENROUTER_API_KEY)?.trim() ?? "";
+    if (apiKey) others.push({ name, apiKey, endpoint: ENDPOINTS[name], models: modelsFor(name, undefined) });
+  }
+  return [primary, ...others];
 }
 
 /**

@@ -185,7 +185,8 @@ function offlineTopics(definition: FormDefinition, resume: string): EssayTopic[]
 
 /** Regex reader for a resume when no model is available: links, a year, options, school and employer. */
 export function offlineResume(definition: FormDefinition, answers: Answers, resume: string): GuideResponse {
-  const fills = extractFills(definition, resume.replace(/\s+/g, " "), { statement: true });
+  // Lines stay lines so a school name stops at the end of its own line.
+  const fills = extractFills(definition, resume.replace(/[ \t]+/g, " "), { statement: true });
   const topics = offlineTopics(definition, resume);
   const out: GuideResponse = { message: summariseResume(definition, answers, fills, topics) };
   if (fills.length > 0) out.action = { type: "fill", fields: fills };

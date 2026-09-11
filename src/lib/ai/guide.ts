@@ -242,8 +242,18 @@ export function parseGuideResponse(raw: string, definition: FormDefinition): Gui
   return withFallbackMessage(out);
 }
 
+/** Longer than this and the model has put its reasoning in the message; keep the first sentences. */
+export const MAX_REPLY_CHARS = 320;
+
+export function clipReply(message: string): string {
+  if (message.length <= MAX_REPLY_CHARS) return message;
+  const head = message.slice(0, MAX_REPLY_CHARS);
+  const end = Math.max(head.lastIndexOf(". "), head.lastIndexOf("? "), head.lastIndexOf("! "), head.lastIndexOf(".\n"));
+  return end > 40 ? head.slice(0, end + 1).trim() : truncate(message, MAX_REPLY_CHARS);
+}
+
 function withFallbackMessage(response: GuideResponse): GuideResponse {
-  if (response.message) return response;
+  if (response.message) return { ...response, message: clipReply(response.message) };
   const text = response.action && "text" in response.action ? response.action.text : "";
   return { ...response, message: text || "Ask about any field." };
 }
