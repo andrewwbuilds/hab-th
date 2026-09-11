@@ -161,8 +161,8 @@ The UI is a faithful take on Linear's app (dark theme only for this deliverable)
   accepted `#4cb782`, waitlisted `#f2994a`, rejected `#eb5757`.
 - Type: Inter via `next/font/google`. Base 13px / 20px line-height; table rows 13px; labels 12px; page titles 15px
   medium; hero (landing only) 40px semibold tight. Weights 400/500/600 only. No all-caps labels.
-- Landing exception: `src/app/landing.css` pairs Aleo light (serif) with Inter in headings, uses notched mono
-  uppercase buttons, and draws a halftone skyline on canvas. The layout borrows from the Twenty landing page.
+- Landing exception: `src/app/landing.css` pairs Aleo light (serif) with Inter in headings, uses mono uppercase
+  buttons (same 6px radius as the app), and draws a halftone skyline on canvas. The layout borrows from the Twenty landing page.
   None of this applies inside the app.
 - Radius 6px on every control, including chips and icon buttons; never pills. 8px on panels. Borders 1px, never shadows except the command palette and popovers.
 - Layout: left sidebar 232px (workspace name, nav with icons, Roadie mini at bottom for applicants), 40px top bar with
