@@ -63,6 +63,10 @@
 
 .encore-copy h1{font-size:clamp(44px,5.8vw,78px);line-height:1.04;letter-spacing:-.035em;font-weight:500}
 .encore-copy h1 .encore-serif{letter-spacing:-.03em}
+.encore-copy{padding:24px 20px 36px}
+.encore-copy h1{margin:20px 0 0}
+/* The eyebrow wears the scrolled navbar's glass panel. */
+.encore-eyebrow{width:fit-content;margin:0 auto;padding:6px 12px 6px 10px;border:1px solid #2a2c3a;border-radius:8px;background:rgba(16,17,23,.82);box-shadow:0 14px 40px #0009,inset 0 1px #ffffff0f;backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25)}
 .encore-stage{position:relative;padding-bottom:64px}
 .encore-stage .encore-scene-shell{position:relative;z-index:1}
 .encore-halftone{position:absolute;z-index:0;left:50%;bottom:0;display:block;width:100vw;max-width:1920px;height:74%;transform:translateX(-50%);pointer-events:none}
@@ -223,6 +227,8 @@
   .encore-nav-actions{margin-left:0}
   .encore-nav{padding:0 22px}
   .encore-header[data-compact=true] .encore-nav{padding:0 8px 0 14px}
+  .encore-copy{padding:16px 6px 28px}
+  .encore-copy h1{margin-top:16px}
   .encore-facts,.encore-section{margin-left:24px;margin-right:24px}
   .encore-section,.encore-roles,.encore-guides{padding-top:88px}
   .encore-cta-inner{padding:80px 24px}
