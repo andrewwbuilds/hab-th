@@ -21,6 +21,8 @@ export interface FieldDef {
   required: boolean;
   /** One sentence the Roadie rephrases in its own tone when the field is focused. */
   hint: string;
+  /** Written in the applicant's own words. The Roadie never fills or drafts it, only asks questions about it. */
+  essay?: boolean;
   placeholder?: string;
   options?: FieldOption[];
   maxLength?: number;
@@ -218,6 +220,7 @@ const hackerForm: FormDefinition = {
           label: "A project you are proud of",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "Describe one thing you made, what was hard about it, and what you would change now; a school assignment counts.",
           placeholder:
             "Last spring I built a CLI that syncs my class schedule to Google Calendar. The hard part was parsing the registrar's HTML...",
@@ -235,6 +238,7 @@ const hackerForm: FormDefinition = {
           label: "What do you want to build?",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "A sentence or two on the problem and who it is for beats a feature list.",
           placeholder:
             "A tool that turns lecture recordings into flashcards, for students who learn by review...",
@@ -257,6 +261,7 @@ const hackerForm: FormDefinition = {
           label: "Why this hackathon?",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "Tell us what you hope to leave with on Sunday, whether a demo, a team, or a skill.",
           placeholder: "I want to ship something end to end with people I have never met...",
           maxLength: 1000,
@@ -326,6 +331,7 @@ const judgeForm: FormDefinition = {
           label: "Judging experience",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "Past hackathons, grant panels, or design reviews all count; if this is your first time say so and tell us how you evaluate work.",
           placeholder: "I judged the final round at Cal Hacks 10 and sit on our internal design review board...",
           maxLength: 1200,
@@ -412,6 +418,7 @@ const mentorForm: FormDefinition = {
           label: "Past mentoring",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "Tell us about a time you helped someone get unstuck, at a hackathon or anywhere else.",
           placeholder: "I ran the help desk at TreeHacks last year and TA'd CS 61B for two semesters...",
           maxLength: 1200,
@@ -441,6 +448,7 @@ const mentorForm: FormDefinition = {
           label: "What do you wish someone had told you at your first hackathon?",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "One honest paragraph; we print the best ones in the welcome packet.",
           placeholder: "Cut the scope in half on Friday night, then cut it again Saturday morning...",
           maxLength: 1000,
@@ -521,6 +529,7 @@ const volunteerForm: FormDefinition = {
           label: "Why do you want to volunteer?",
           type: "textarea",
           required: true,
+          essay: true,
           hint: "A couple of sentences on what draws you to the event is plenty.",
           placeholder: "I hacked last year and want to see the other side of the table...",
           maxLength: 800,
