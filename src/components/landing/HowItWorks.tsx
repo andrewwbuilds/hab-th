@@ -16,7 +16,7 @@ const STEPS = [
     key: "guide",
     light: "Bring a guide",
     strong: "you actually like",
-    body: "Choose Eddy, Gary, or Eric, draw your own character, or turn a selfie into an anime portrait. It is optional, and it makes the form feel a lot less lonely.",
+    body: "Choose Eddy, Gary, or Eric, draw your own character, or take a selfie and add a little spice to it. It is optional, and it makes the form feel a lot less lonely.",
   },
   {
     key: "ask",

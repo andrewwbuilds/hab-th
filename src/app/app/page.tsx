@@ -121,8 +121,8 @@ export default async function ApplicantHomePage() {
             <div className="flex flex-col gap-1">
               <h2 className="text-md font-medium text-fg">Choose your guide</h2>
               <p className="max-w-lg text-base text-muted">
-                Optional. Pick Eddy, Gary, or Eric, draw your own character, or take a selfie and get it drawn in
-                Encore’s anime style.
+                Optional. Pick Eddy, Gary, or Eric, draw your own character, or take a selfie and add a little spice
+                to it.
                 Your guide talks you through each question in its own voice. You can start a track now and
                 choose one whenever you like.
               </p>
