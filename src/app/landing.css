@@ -51,6 +51,12 @@
 .encore-button-outline{background:var(--button-surface);border-color:#3a3d52;color:var(--color-fg)}
 .encore-button-outline:hover{border-color:#6c70a0}
 .encore-landing .encore-button:focus-visible{outline:2px solid #a6adef;outline-offset:3px}
+/* Hero buttons keep the notched corner; every other button uses the shared control radius. */
+.encore-hero .encore-button{--notch:10px;position:relative;isolation:isolate;border:0;border-radius:0;clip-path:polygon(0 0,100% 0,100% calc(100% - var(--notch)),calc(100% - var(--notch)) 100%,0 100%)}
+.encore-hero .encore-button-outline{background:#3a3d52}
+.encore-hero .encore-button-outline:before{content:"";position:absolute;inset:1px;z-index:-1;background:var(--button-surface);clip-path:polygon(0 0,100% 0,100% calc(100% - var(--notch) + .6px),calc(100% - var(--notch) + .6px) 100%,0 100%)}
+.encore-hero .encore-button-outline:hover{background:#6c70a0}
+.encore-hero .encore-button:focus-visible{clip-path:none}
 .encore-actions{gap:12px}
 .encore-actions-start{justify-content:flex-start;margin-top:32px}
 
