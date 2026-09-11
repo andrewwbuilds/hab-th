@@ -58,7 +58,7 @@ Playwright reads `.env.local` for the Supabase keys and starts `next dev` on `E2
 | `GROQ_API_KEY` | server only | Groq key for the Roadie assistant; picked first when set |
 | `OPENROUTER_API_KEY` | server only | OpenRouter key; answers the assistant when there is no Groq key and is required for selfie portraits |
 | `AI_PROVIDER` | server only | `groq`, `openrouter`, or `offline`; overrides the key-based choice |
-| `AI_MODEL` | server only | model id for the chosen provider; defaults to `openai/gpt-oss-120b` (Groq) or `google/gemma-4-31b-it:free` (OpenRouter) |
+| `AI_MODEL` | server only | first model tried on the chosen provider; the defaults in `src/lib/ai/config.ts` stay behind it as fallbacks |
 | `AI_IMAGE_MODEL` | server only | OpenRouter image model for selfie portraits; defaults to `google/gemini-3.1-flash-lite-image`, fallback `google/gemini-2.5-flash-image` |
 | `E2E_PORT` | playwright only | port Playwright starts `next dev` on (default 3000) |
 | `E2E_BASE_URL` | playwright only | run the e2e specs against an existing server instead of starting one |
@@ -103,7 +103,8 @@ and trimmed so a paragraph cannot hide in one. See `docs/decisions/0007-roadie-f
 and `docs/decisions/0008-walk-through-and-resume-upload.md`.
 
 `src/app/api/assistant/route.ts` checks the applicant session, validates the body, and calls `src/lib/ai/provider.ts`,
-which talks to Groq or OpenRouter with plain `fetch` and JSON output, retries once on a fallback model, and then falls
+which talks to Groq or OpenRouter with plain `fetch` and JSON output, walks a chain of models on the chosen provider,
+then the other provider's chain if it has a key (the free OpenRouter pool is often rate-limited), and then falls
 back to `src/lib/ai/offline.ts`. The offline guide answers from the form definition alone and pulls quick answers out
 of plain statements with regular expressions, so the assistant works with no API key at all; that is the mode the demo and the unit tests use. See `docs/decisions/0004-assistant-llm-with-offline-fallback.md`.
 

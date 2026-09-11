@@ -276,9 +276,12 @@ It never writes an essay.
   clarify renders the text and highlights the field when one is named; fill writes every value through the form's
   `setAnswer` (so autosave runs), shows a card listing label and value per field, and offers Undo, which restores
   the previous values.
-- Providers: `src/lib/ai/provider.ts` calls Groq (`openai/gpt-oss-120b`, fallback `openai/gpt-oss-20b`) or
-  OpenRouter (`google/gemma-4-31b-it:free`, fallback `google/gemma-4-26b-a4b-it:free`) with JSON output. `AI_PROVIDER`
-  and `AI_MODEL` override the choice. On failure the fallback model is tried once, then the offline guide answers.
+- Providers: `src/lib/ai/provider.ts` calls Groq (`openai/gpt-oss-120b`, then `qwen/qwen3.8-27b`) or OpenRouter
+  (`google/gemma-4-31b-it:free`, then `nex-agi/nex-n2.5-pro:free`, then `poolside/laguna-s-2.1:free`) with JSON
+  output. `AI_PROVIDER` picks the primary and `AI_MODEL` the first model on it. Every model of the primary is tried,
+  then every model of the other provider when it has a key (`resolveProviders`), then the offline guide answers.
+  A rate-limited model fails in under a second. Replies longer than 320 characters are clipped at a sentence end,
+  since that length means a model wrote its reasoning into the message.
 - Offline guide: `src/lib/ai/offline.ts` needs no key or network. A statement (no question mark or question word)
   goes through `extractFills`: links by host, a year for the number field that accepts it, pronouns, option labels
   and values for selects, "I'm at <School>" and "I work at <Company> as <role>" phrases, and the first-hackathon
