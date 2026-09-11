@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_IMAGE_MODELS, IMAGE_ENDPOINT, resolveImageProvider, resolveProvider } from "../../src/lib/ai/config";
 import { LIMIT_PER_WINDOW, LIMIT_WINDOW_MS, allowRequest, resetLimiter } from "../../src/lib/ai/limiter";
 import { coerceFill, fillIntro, isEssay, sanitizeFills } from "../../src/lib/ai/fill";
-import { essayCoaching, parseGuideResponse } from "../../src/lib/ai/guide";
-import { exampleFor, extractFills, offlineGuide, pickField } from "../../src/lib/ai/offline";
+import { essayCoaching, parseGuideResponse, sanitizeTopics } from "../../src/lib/ai/guide";
+import { answerFor, askLine, exampleFor, extractFills, nextQuestion, offlineGuide, pickField } from "../../src/lib/ai/offline";
+import { offlineResume, parseResumeResponse, resumeHeadlines } from "../../src/lib/ai/resume";
 import { PORTRAIT_PROMPT, buildPortraitRequest, parsePortraitResponse } from "../../src/lib/ai/portrait";
 import { buildSystemPrompt } from "../../src/lib/ai/prompt";
 import { FORM_DEFINITIONS } from "../../src/lib/forms/tracks";
@@ -204,7 +205,8 @@ describe("offline fill extractor", () => {
     const response = offlineGuide({ definition: hacker, answers: {}, message: "Shirt size L, class of 2028." });
     expect(response.action?.type).toBe("fill");
     expect(response.message).toMatch(/Shirt size/);
-    expect(response.message).toMatch(/Next:/);
+    expect(response.ask).toEqual({ fieldKey: "school" });
+    expect(response.message).toMatch(/School\?/);
   });
 
   it("coaches instead of drafting when asked for an essay example", () => {
@@ -307,9 +309,172 @@ describe("offline guide", () => {
           }
         }),
     );
+    const optional = fields.filter((field) => !field.required && !field.essay);
     const response = offlineGuide({ definition: hacker, answers, message: "hello" });
-    expect(response.action).toBeUndefined();
-    expect(response.message).toMatch(/required/i);
+    expect(response.ask).toEqual({ fieldKey: optional[0]?.key });
+    expect(response.message).toMatch(/Optional; say skip/);
+
+    const skipped = optional.map((field) => field.key);
+    const done = offlineGuide({ definition: hacker, answers, asked: skipped, message: "hello" });
+    expect(done.action).toBeUndefined();
+    expect(done.ask).toBeUndefined();
+    expect(done.message).toMatch(/Every question is answered/);
+  });
+});
+
+describe("walk-through", () => {
+  it("asks every empty fillable field in form order, optional included, then the essays", () => {
+    const order: string[] = [];
+    const asked: string[] = [];
+    for (;;) {
+      const next = nextQuestion(hacker, {}, asked);
+      if (!next) break;
+      order.push(next.key);
+      asked.push(next.key);
+    }
+    expect(order).toContain("pronouns");
+    expect(order.indexOf("pronouns")).toBeLessThan(order.indexOf("shirt_size"));
+    expect(order.slice(-3)).toEqual(["proud_project", "build_idea", "why_encore"]);
+  });
+
+  it("lists options in the question and marks optional fields", () => {
+    expect(askLine(firstSelect)).toContain(firstSelect.options?.[0]?.label ?? "");
+    const pronouns = fields.find((field) => field.key === "pronouns");
+    expect(pronouns && askLine(pronouns)).toMatch(/Optional; say skip/);
+  });
+
+  it("hears pronouns as words and never swaps the set", () => {
+    const pronouns = fields.find((field) => field.key === "pronouns");
+    if (!pronouns) throw new Error("no pronouns field");
+    expect(answerFor(pronouns, "he him")).toBe("he/him");
+    expect(answerFor(pronouns, "I'm he/him.")).toBe("he/him");
+    expect(answerFor(pronouns, "they them")).toBe("they/them");
+    expect(answerFor(pronouns, "she")).toBe("she/her");
+    expect(answerFor(pronouns, "he slash him")).toBe("he/him");
+    expect(extractFills(hacker, "i go by he him").find((fill) => fill.fieldKey === "pronouns")?.value).toBe("he/him");
+  });
+
+  it("reads the reply as the answer to the field it asked about", () => {
+    const school = offlineGuide({ definition: hacker, answers: {}, asking: "school", message: "I go to UC Berkeley" });
+    expect(school.action).toEqual({ type: "fill", fields: [{ fieldKey: "school", value: "UC Berkeley" }] });
+    expect(school.ask).toEqual({ fieldKey: "graduation_year" });
+
+    const year = offlineGuide({ definition: hacker, answers: {}, asking: "graduation_year", message: "class of 2027" });
+    expect(year.action).toEqual({ type: "fill", fields: [{ fieldKey: "graduation_year", value: 2027 }] });
+
+    const link = offlineGuide({ definition: hacker, answers: {}, asking: "github", message: "github dot com slash aw" });
+    expect(link.action).toEqual({ type: "fill", fields: [{ fieldKey: "github", value: "https://github.com/aw" }] });
+
+    const size = offlineGuide({ definition: hacker, answers: {}, asking: "shirt_size", message: "medium" });
+    expect(size.action).toEqual({ type: "fill", fields: [{ fieldKey: "shirt_size", value: "m" }] });
+
+    const no = offlineGuide({ definition: hacker, answers: {}, asking: "first_hackathon", message: "no" });
+    expect(no.action).toEqual({ type: "fill", fields: [{ fieldKey: "first_hackathon", value: false }] });
+    expect(no.ask?.fieldKey).not.toBe("first_hackathon");
+  });
+
+  it("skips an optional field on request and re-asks when it cannot map the reply", () => {
+    const skip = offlineGuide({ definition: hacker, answers: {}, asking: "pronouns", message: "skip" });
+    expect(skip.action).toBeUndefined();
+    expect(skip.message).toMatch(/^Skipped pronouns\./);
+    expect(skip.ask?.fieldKey).not.toBe("pronouns");
+
+    const lost = offlineGuide({ definition: hacker, answers: {}, asking: "shirt_size", message: "banana" });
+    expect(lost.action).toBeUndefined();
+    expect(lost.ask).toEqual({ fieldKey: "shirt_size" });
+    expect(lost.message).toMatch(/Did not catch that/);
+  });
+
+  it("never fills an essay from a reply and moves on", () => {
+    const essay = offlineGuide({ definition: hacker, answers: {}, asking: firstEssay.key, message: "I built a compiler" });
+    expect(essay.action).toBeUndefined();
+    expect(essay.message).toMatch(/do not fill essays/);
+    expect(essay.ask?.fieldKey).not.toBe(firstEssay.key);
+  });
+
+  it("keeps a model ask only for a real field", () => {
+    const raw = JSON.stringify({ message: "School?", action: null, ask: { fieldKey: "school" } });
+    expect(parseGuideResponse(raw, hacker).ask).toEqual({ fieldKey: "school" });
+    const bad = JSON.stringify({ message: "Hm?", action: null, ask: { fieldKey: "nope" } });
+    expect(parseGuideResponse(bad, hacker).ask).toBeUndefined();
+  });
+});
+
+describe("resume", () => {
+  const resume = [
+    "Andrew Wang",
+    "andrew@example.com | github.com/aw | linkedin.com/in/aw",
+    "EDUCATION",
+    "UC Berkeley, B.A. Computer Science, expected May 2027",
+    "EXPERIENCE",
+    "Software Engineering Intern, Stripe, Summer 2025",
+    "Built a Rust service for webhook retries",
+    "PROJECTS",
+    "Open Source Compiler Toolkit",
+    "Campus Ride Share App",
+    "Skills: Python, React, Rust, frontend, backend",
+  ].join("\n");
+
+  it("drops topics for non-essay fields, trims them, and caps three per essay", () => {
+    const topics = sanitizeTopics(hacker, [
+      { fieldKey: "school", title: "nope" },
+      { fieldKey: firstEssay.key, title: "  Compiler   toolkit ", angle: "shows depth" },
+      { fieldKey: firstEssay.key, title: "Ride share" },
+      { fieldKey: firstEssay.key, title: "Stripe retries" },
+      { fieldKey: firstEssay.key, title: "one too many" },
+      { fieldKey: firstEssay.key, title: "" },
+    ]);
+    expect(topics).toHaveLength(3);
+    expect(topics[0]).toEqual({ fieldKey: firstEssay.key, title: "Compiler toolkit", angle: "shows depth" });
+    expect(topics.map((topic) => topic.title)).not.toContain("one too many");
+  });
+
+  it("parses model output into a fill, topics, a message, and the next question", () => {
+    const raw = JSON.stringify({
+      message: "ignored",
+      fields: [
+        { fieldKey: "school", value: "UC Berkeley" },
+        { fieldKey: "graduation_year", value: "2027" },
+        { fieldKey: firstEssay.key, value: "a whole essay" },
+      ],
+      topics: [{ fieldKey: firstEssay.key, title: "Compiler toolkit", angle: "depth" }],
+    });
+    const response = parseResumeResponse(raw, hacker, {}, resume);
+    expect(response.action).toEqual({
+      type: "fill",
+      fields: [
+        { fieldKey: "school", value: "UC Berkeley" },
+        { fieldKey: "graduation_year", value: 2027 },
+      ],
+    });
+    expect(response.topics).toHaveLength(1);
+    expect(response.message).toMatch(/^Set school, graduation year\. 1 essay idea below\./);
+    expect(response.ask).toEqual({ fieldKey: "pronouns" });
+    expect(JSON.stringify(response)).not.toContain("a whole essay");
+  });
+
+  it("falls back to the regex reader when the model output is not JSON", () => {
+    const response = parseResumeResponse("not json at all", hacker, {}, resume);
+    expect(response.action?.type).toBe("fill");
+  });
+
+  it("reads links, the latest year, and options out of a resume without a model", () => {
+    const response = offlineResume(hacker, {}, resume);
+    const byKey = Object.fromEntries((response.action?.type === "fill" ? response.action.fields : []).map((fill) => [fill.fieldKey, fill.value]));
+    expect(byKey.github).toBe("https://github.com/aw");
+    expect(byKey.linkedin).toBe("https://linkedin.com/in/aw");
+    expect(byKey.graduation_year).toBe(2027);
+    expect(byKey.skills).toEqual(expect.arrayContaining(["frontend", "backend"]));
+    expect(response.topics?.length).toBeGreaterThan(0);
+    expect(response.topics?.every((topic) => fields.find((field) => field.key === topic.fieldKey)?.essay)).toBe(true);
+  });
+
+  it("picks project and role lines as headlines and skips section headings and contact lines", () => {
+    const lines = resumeHeadlines(resume, 10);
+    expect(lines).toContain("Open Source Compiler Toolkit");
+    expect(lines).toContain("Campus Ride Share App");
+    expect(lines).not.toContain("EDUCATION");
+    expect(lines.some((line) => line.includes("@"))).toBe(false);
   });
 });
 

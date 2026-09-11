@@ -22,17 +22,17 @@ export async function POST(request: Request) {
   const parsed = guideRequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
-  const { track, fieldKey, answers } = parsed.data;
+  const { track, fieldKey, asking, asked, answers } = parsed.data;
   const definition = FORM_DEFINITIONS[track];
   const messages = parsed.data.messages
     .slice(-MAX_MESSAGES)
     .map((message) => ({ role: message.role, content: truncate(message.content, MAX_MESSAGE_CHARS) }));
   const last = messages.findLast((message) => message.role === "user");
   if (!last || last.content.trim() === "") {
-    return NextResponse.json(offlineGuide({ definition, answers, fieldKey, message: "" }));
+    return NextResponse.json(offlineGuide({ definition, answers, fieldKey, asking, asked, message: "" }));
   }
   const pet = await getPetForUser(user.id);
 
-  const response = await askGuide({ definition, answers, fieldKey, messages, pet });
+  const response = await askGuide({ definition, answers, fieldKey, asking, asked, messages, pet });
   return NextResponse.json(response);
 }

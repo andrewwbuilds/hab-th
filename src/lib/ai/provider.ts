@@ -5,6 +5,7 @@ import { resolveProvider, type ProviderConfig } from "@/lib/ai/config";
 import { openrouterHeaders, retryable } from "@/lib/ai/http";
 import { offlineGuide } from "@/lib/ai/offline";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
+import { RESUME_JSON_SCHEMA, buildResumePrompt, offlineResume, parseResumeResponse, type ResumePromptInput } from "@/lib/ai/resume";
 
 const TOTAL_TIMEOUT_MS = 20_000;
 const MIN_ATTEMPT_MS = 1_500;
@@ -17,9 +18,11 @@ interface ChatMessage {
 
 type Attempt = { ok: true; text: string } | { ok: false; reason: string; retry: boolean };
 
-function responseFormat(config: ProviderConfig): Record<string, unknown> {
+type JsonSchema = typeof GUIDE_JSON_SCHEMA | typeof RESUME_JSON_SCHEMA;
+
+function responseFormat(config: ProviderConfig, name: string, schema: JsonSchema): Record<string, unknown> {
   if (config.name === "groq") {
-    return { type: "json_schema", json_schema: { name: "roadie_guide", strict: true, schema: GUIDE_JSON_SCHEMA } };
+    return { type: "json_schema", json_schema: { name, strict: true, schema } };
   }
   return { type: "json_object" };
 }
@@ -29,7 +32,13 @@ function headersFor(config: ProviderConfig): Record<string, string> {
   return { "content-type": "application/json", authorization: `Bearer ${config.apiKey}` };
 }
 
-async function chat(config: ProviderConfig, model: string, messages: ChatMessage[], timeoutMs: number): Promise<Attempt> {
+async function chat(
+  config: ProviderConfig,
+  model: string,
+  messages: ChatMessage[],
+  timeoutMs: number,
+  format: Record<string, unknown>,
+): Promise<Attempt> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -41,7 +50,7 @@ async function chat(config: ProviderConfig, model: string, messages: ChatMessage
         messages,
         temperature: 0.4,
         max_tokens: MAX_OUTPUT_TOKENS,
-        response_format: responseFormat(config),
+        response_format: format,
       }),
       signal: controller.signal,
     });
@@ -88,8 +97,29 @@ function offline(input: GuideInput): GuideResponse {
     definition: input.definition,
     answers: input.answers,
     fieldKey: input.fieldKey,
+    asking: input.asking,
+    asked: input.asked,
     message: lastUserMessage(input),
   });
+}
+
+/** Tries each model in turn until one answers within the budget. Undefined means every attempt failed. */
+async function complete(
+  config: ProviderConfig,
+  messages: ChatMessage[],
+  format: Record<string, unknown>,
+  label: string,
+): Promise<string | undefined> {
+  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
+  for (const model of config.models) {
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_ATTEMPT_MS) break;
+    const attempt = await chat(config, model, messages, remaining, format);
+    if (attempt.ok) return attempt.text;
+    console.warn(`[${label}] ${config.name}/${model} failed: ${attempt.reason}`);
+    if (!attempt.retry) break;
+  }
+  return undefined;
 }
 
 /**
@@ -104,18 +134,25 @@ export async function askGuide(input: AskGuideInput): Promise<GuideResponse> {
     definition: input.definition,
     answers: input.answers,
     fieldKey: input.fieldKey,
+    asking: input.asking,
+    asked: input.asked,
     pet: input.pet,
   });
   const messages: ChatMessage[] = [{ role: "system", content: system }, ...input.messages];
-  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
+  const text = await complete(config, messages, responseFormat(config, "roadie_guide", GUIDE_JSON_SCHEMA), "assistant");
+  return text ? parseGuideResponse(text, input.definition) : offline(input);
+}
 
-  for (const model of config.models) {
-    const remaining = deadline - Date.now();
-    if (remaining < MIN_ATTEMPT_MS) break;
-    const attempt = await chat(config, model, messages, remaining);
-    if (attempt.ok) return parseGuideResponse(attempt.text, input.definition);
-    console.warn(`[assistant] ${config.name}/${model} failed: ${attempt.reason}`);
-    if (!attempt.retry) break;
-  }
-  return offline(input);
+/** Reads a resume into fills and essay topics, falling back to the regex reader. Never throws. */
+export async function askResume(input: ResumePromptInput): Promise<GuideResponse> {
+  const config = resolveProvider(process.env);
+  if (config.name === "offline") return offlineResume(input.definition, input.answers, input.resume);
+  const messages: ChatMessage[] = [
+    { role: "system", content: buildResumePrompt(input) },
+    { role: "user", content: "Read the resume above. Fill what it supports and suggest essay topics." },
+  ];
+  const text = await complete(config, messages, responseFormat(config, "roadie_resume", RESUME_JSON_SCHEMA), "resume");
+  return text
+    ? parseResumeResponse(text, input.definition, input.answers, input.resume)
+    : offlineResume(input.definition, input.answers, input.resume);
 }

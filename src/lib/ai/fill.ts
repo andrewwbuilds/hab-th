@@ -169,11 +169,11 @@ export function fillIntro(definition: FormDefinition, answers: Answers): string 
   } else {
     const labels = open.map((field) => field.label.toLowerCase());
     const shown = labels.length > 8 ? [...labels.slice(0, 7), `${labels.length - 7} more`] : labels;
-    parts.push(`I can fill: ${joinLabels(shown)}. Say them or type them.`);
+    parts.push(`Upload your resume (paperclip) and I fill what it has: ${joinLabels(shown)}.`);
   }
   if (essays.length > 0) {
     const count = essays.length === 1 ? "The written answer stays" : `The ${essays.length} written answers stay`;
-    parts.push(`${count} yours. I ask questions; I do not write them.`);
+    parts.push(`${count} yours. I suggest topics; I do not write them.`);
   }
   return parts.join(" ");
 }

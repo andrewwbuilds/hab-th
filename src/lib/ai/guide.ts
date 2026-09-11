@@ -18,6 +18,10 @@ export const guideMessageSchema = z.object({
 export const guideRequestSchema = z.object({
   track: z.enum(TRACKS),
   fieldKey: z.string().max(80).optional(),
+  /** The field the guide's last message asked about; the next reply is probably its answer. */
+  asking: z.string().max(80).optional(),
+  /** Fields already asked this session, so a "no" on a checkbox or a skipped optional is not asked again. */
+  asked: z.array(z.string().max(80)).max(80).default([]),
   answers: z.record(z.string(), answerValueSchema).default({}),
   messages: z.array(guideMessageSchema).min(1).max(MAX_MESSAGES * 5),
 });
@@ -25,7 +29,7 @@ export const guideRequestSchema = z.object({
 export type GuideMessage = z.infer<typeof guideMessageSchema>;
 export type GuideRequest = z.infer<typeof guideRequestSchema>;
 
-const rawFillSchema = z.object({ fieldKey: z.string(), value: answerValueSchema });
+export const rawFillSchema = z.object({ fieldKey: z.string(), value: answerValueSchema });
 
 export const guideActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("highlight"), fieldKey: z.string() }),
@@ -34,9 +38,13 @@ export const guideActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("fill"), fields: z.array(rawFillSchema).max(40) }),
 ]);
 
+export const rawTopicSchema = z.object({ fieldKey: z.string(), title: z.string(), angle: z.string().default("") });
+
 export const guideResponseSchema = z.object({
   message: z.string(),
   action: guideActionSchema.nullish(),
+  ask: z.object({ fieldKey: z.string() }).nullish(),
+  topics: z.array(rawTopicSchema).max(20).nullish(),
 });
 
 /** The same contract as guideResponseSchema, in the shape strict providers (Groq) accept. */
@@ -92,8 +100,14 @@ export const GUIDE_JSON_SCHEMA = {
         },
       ],
     },
+    ask: {
+      anyOf: [
+        { type: "null" },
+        { type: "object", properties: { fieldKey: { type: "string" } }, required: ["fieldKey"], additionalProperties: false },
+      ],
+    },
   },
-  required: ["message", "action"],
+  required: ["message", "action", "ask"],
   additionalProperties: false,
 } as const;
 
@@ -105,9 +119,43 @@ export type GuideAction =
 
 export type { Fill, AnswerValue };
 
+/** A pointer at something the applicant could write an essay about. Never a draft. */
+export interface EssayTopic {
+  fieldKey: string;
+  title: string;
+  angle: string;
+}
+
 export interface GuideResponse {
   message: string;
   action?: GuideAction;
+  /** The one field the message asks about. The panel sends it back as `asking` with the reply. */
+  ask?: { fieldKey: string };
+  /** Essay ideas, only ever for essay fields. Set by the resume flow. */
+  topics?: EssayTopic[];
+}
+
+export const MAX_TOPIC_CHARS = 160;
+export const MAX_TOPICS_PER_ESSAY = 3;
+
+/** Keeps topics that point at an essay field, trimmed and capped so a paragraph cannot hide in one. */
+export function sanitizeTopics(
+  definition: FormDefinition,
+  raw: ReadonlyArray<{ fieldKey: string; title: string; angle?: string }>,
+): EssayTopic[] {
+  const essays = new Set(fieldsOf(definition).filter(isEssay).map((field) => field.key));
+  const perField = new Map<string, number>();
+  const out: EssayTopic[] = [];
+  for (const topic of raw) {
+    if (!essays.has(topic.fieldKey)) continue;
+    const title = truncate(topic.title.replace(/\s+/g, " ").trim(), MAX_TOPIC_CHARS);
+    if (!title) continue;
+    const count = perField.get(topic.fieldKey) ?? 0;
+    if (count >= MAX_TOPICS_PER_ESSAY) continue;
+    perField.set(topic.fieldKey, count + 1);
+    out.push({ fieldKey: topic.fieldKey, title, angle: truncate((topic.angle ?? "").replace(/\s+/g, " ").trim(), MAX_TOPIC_CHARS) });
+  }
+  return out;
 }
 
 /** What the guide needs beyond the request: the server-side definition and the current answers. */
@@ -115,6 +163,8 @@ export interface GuideInput {
   definition: FormDefinition;
   answers: Answers;
   fieldKey?: string;
+  asking?: string;
+  asked: string[];
   messages: GuideMessage[];
 }
 
@@ -158,8 +208,9 @@ export function parseGuideResponse(raw: string, definition: FormDefinition): Gui
   if (!parsed.success) {
     return { message: raw.trim() };
   }
-  const { message, action } = parsed.data;
+  const { message, action, ask } = parsed.data;
   const out: GuideResponse = { message: message.trim() };
+  if (ask && fields.has(ask.fieldKey)) out.ask = { fieldKey: ask.fieldKey };
   if (!action) return withFallbackMessage(out);
   switch (action.type) {
     case "highlight":

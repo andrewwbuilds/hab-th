@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import {
   AudioLines,
   Check,
+  Lightbulb,
   Mic,
   MicOff,
+  Paperclip,
   PenLine,
   SendHorizontal,
   Square,
@@ -15,7 +17,9 @@ import {
 import { PetSprite, useRoadie } from "@/components/pet";
 import { Button, Kbd, Spinner, cn, controlClass, useToast } from "@/components/ui";
 import { describeValue, emptyValue, fillIntro, fillableFields, isEssay } from "@/lib/ai/fill";
-import type { GuideAction, GuideMessage, GuideResponse } from "@/lib/ai/guide";
+import type { EssayTopic, GuideAction, GuideMessage, GuideResponse } from "@/lib/ai/guide";
+import { askLine, nextQuestion } from "@/lib/ai/offline";
+import { RESUME_MAX_BYTES } from "@/lib/ai/resume";
 import { isAnswered, type Answers, type AnswerValue } from "@/lib/forms/schema";
 import type { FieldDef, FormDefinition } from "@/lib/forms/tracks";
 import { TRACK_LABEL, type Track } from "@/lib/types";
@@ -82,7 +86,10 @@ interface ChatEntry extends GuideMessage {
   /** What a fill action wrote, kept so Undo can put the old values back. */
   changes?: FillChange[];
   undone?: boolean;
+  topics?: EssayTopic[];
 }
+
+const RESUME_ACCEPT = ".pdf,.txt,.md,application/pdf,text/plain,text/markdown";
 
 function fieldId(key: string): string {
   return `field-${key}`;
@@ -131,17 +138,10 @@ export function fillValue(field: FieldDef, text: string): AnswerValue | undefine
   }
 }
 
-function greeting(name: string | undefined, field: FieldDef | undefined): string {
+function intro(name: string | undefined, label: string, voice: boolean): string {
   const who = name ?? "Your Roadie";
-  const about = field ? `"${field.label}"` : "any field";
-  return `${who}. Ask about ${about} or tell me about yourself.`;
-}
-
-function walkthroughIntro(name: string | undefined, label: string, field: FieldDef | undefined, voice: boolean): string {
-  const who = name ?? "Your Roadie";
-  const how = voice ? "Type, or hit Talk live and say it." : "Type it here.";
-  const first = field ? ` First: "${field.label}".` : "";
-  return `${who}. ${label} application, one question at a time.${first} ${how}`;
+  const how = voice ? "Type or say each answer in a few words." : "Type each answer in a few words.";
+  return `${who}. ${label} application. I ask one question at a time, so answer just that one. ${how}`;
 }
 
 function joinSpeech(head: string, tail: string): string {
@@ -169,12 +169,18 @@ export function AssistantPanel({
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  /** The field the guide's last message asked about. The next reply is read as its answer. */
+  const [asking, setAsking] = useState<string | undefined>(undefined);
 
   const panel = useRef<HTMLDivElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const listEnd = useRef<HTMLDivElement>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  /** Fields the guide has asked about this session; the server never asks them twice. */
+  const asked = useRef(new Set<string>());
+  const askingRef = useRef<string | undefined>(undefined);
   const nextId = useRef(1);
   const entriesRef = useRef<ChatEntry[]>([]);
   const answersRef = useRef(answers);
@@ -189,7 +195,8 @@ export function AssistantPanel({
   useEffect(() => {
     entriesRef.current = entries;
     answersRef.current = answers;
-  }, [entries, answers]);
+    askingRef.current = asking;
+  }, [entries, answers, asking]);
 
   const name = spec?.name;
 
@@ -263,23 +270,27 @@ export function AssistantPanel({
     restoreFocus.current = null;
   }, [flushSpeech, voice]);
 
+  /** The first message: how this works, what the resume can fill, and the first question. */
+  const startConversation = useCallback(() => {
+    const first = nextQuestion(definition, answersRef.current, [...asked.current]);
+    setEntries([
+      {
+        id: nextId.current++,
+        role: "assistant",
+        content: `${intro(name, TRACK_LABEL[track], voice.supported)} ${fillIntro(definition, answersRef.current)}${first ? ` ${askLine(first)}` : ""}`,
+        action: first && isEssay(first) ? { type: "clarify", fieldKey: first.key, text: first.hint } : undefined,
+      },
+    ]);
+    setAsking(first?.key);
+    return first;
+  }, [definition, name, track, voice.supported]);
+
   const openPanel = useCallback(() => {
     const active = document.activeElement;
     restoreFocus.current = active instanceof HTMLElement ? active : null;
-    const field = findField(definition, getFocusedFieldKey());
-    setEntries((current) =>
-      current.length > 0
-        ? current
-        : [
-            {
-              id: nextId.current++,
-              role: "assistant",
-              content: `${greeting(name, field)} ${fillIntro(definition, answersRef.current)}`,
-            },
-          ],
-    );
+    if (entriesRef.current.length === 0) startConversation();
     setOpen(true);
-  }, [definition, getFocusedFieldKey, name]);
+  }, [startConversation]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -321,18 +332,13 @@ export function AssistantPanel({
     } catch {
       // Storage unavailable: the walkthrough opens on every visit to the form instead of once.
     }
-    const field = findField(definition, walkthrough.fieldKey);
-    setEntries([
-      {
-        id: nextId.current++,
-        role: "assistant",
-        content: `${walkthroughIntro(name, TRACK_LABEL[track], field, voice.supported)} ${fillIntro(definition, answersRef.current)}`,
-        action: field ? { type: "clarify", fieldKey: field.key, text: field.hint } : undefined,
-      },
-    ]);
-    setOpen(true);
-    if (field) highlight(field.key);
-  }, [walkthrough, track, definition, name, voice.supported, highlight]);
+    // Deferred so the kickoff renders after mount instead of inside the effect body.
+    queueMicrotask(() => {
+      const first = startConversation();
+      setOpen(true);
+      if (first) highlight(first.key);
+    });
+  }, [walkthrough, track, startConversation, highlight]);
 
   useEffect(() => {
     if (!open) return;
@@ -372,6 +378,31 @@ export function AssistantPanel({
     [definition, highlight, setAnswer],
   );
 
+  /** Runs the action, records the question the guide asked, and appends the reply. */
+  const receive = useCallback(
+    (guide: GuideResponse) => {
+      const action = guide.action;
+      let changes: FillChange[] | undefined;
+      if (action?.type === "fill") changes = applyFill(action);
+      else if (action?.type === "highlight" || action?.type === "example") highlight(action.fieldKey);
+      else if (action?.type === "clarify" && action.fieldKey) highlight(action.fieldKey);
+      const previous = askingRef.current;
+      if (guide.ask) {
+        if (previous && previous !== guide.ask.fieldKey) asked.current.add(previous);
+        setAsking(guide.ask.fieldKey);
+        if (action?.type !== "fill" || guide.ask.fieldKey !== previous) highlight(guide.ask.fieldKey);
+      } else if (previous && changes?.some((change) => change.fieldKey === previous)) {
+        asked.current.add(previous);
+        setAsking(undefined);
+      }
+      setEntries((current) => [
+        ...current,
+        { id: nextId.current++, role: "assistant", content: guide.message, action, changes, topics: guide.topics },
+      ]);
+    },
+    [applyFill, highlight],
+  );
+
   const undoFill = (entry: ChatEntry) => {
     if (!entry.changes || entry.undone) return;
     for (const change of entry.changes) {
@@ -401,19 +432,17 @@ export function AssistantPanel({
         const response = await fetch("/api/assistant", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ track, fieldKey: getFocusedFieldKey(), answers: answersRef.current, messages: history }),
+          body: JSON.stringify({
+            track,
+            fieldKey: getFocusedFieldKey(),
+            asking: askingRef.current,
+            asked: [...asked.current],
+            answers: answersRef.current,
+            messages: history,
+          }),
         });
         if (!response.ok) throw new Error(`http ${response.status}`);
-        const guide = (await response.json()) as GuideResponse;
-        const action = guide.action;
-        let changes: FillChange[] | undefined;
-        if (action?.type === "fill") changes = applyFill(action);
-        else if (action?.type === "highlight" || action?.type === "example") highlight(action.fieldKey);
-        else if (action?.type === "clarify" && action.fieldKey) highlight(action.fieldKey);
-        setEntries((current) => [
-          ...current,
-          { id: nextId.current++, role: "assistant", content: guide.message, action, changes },
-        ]);
+        receive((await response.json()) as GuideResponse);
       } catch {
         toast({
           title: `Could not reach ${name ?? "your Roadie"}`,
@@ -428,11 +457,42 @@ export function AssistantPanel({
         if (next) void sendRef.current(next);
       }
     },
-    [applyFill, clearSilence, getFocusedFieldKey, highlight, name, toast, track],
+    [clearSilence, getFocusedFieldKey, name, receive, toast, track],
   );
   useEffect(() => {
     sendRef.current = send;
   }, [send]);
+
+  const uploadResume = async (file: File) => {
+    if (pendingRef.current) return;
+    if (file.size > RESUME_MAX_BYTES) {
+      toast({ title: "File too large", description: "Keep the resume under 5 MB.", variant: "error" });
+      return;
+    }
+    setEntries((current) => [...current, { id: nextId.current++, role: "user", content: `Uploaded ${file.name}` }]);
+    pendingRef.current = true;
+    setPending(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("track", track);
+      body.set("answers", JSON.stringify(answersRef.current));
+      const response = await fetch("/api/resume", { method: "POST", body });
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => ({}))) as { error?: string };
+        toast({ title: "Could not read the resume", description: detail.error ?? "Try again.", variant: "error" });
+        return;
+      }
+      receive((await response.json()) as GuideResponse);
+    } catch {
+      toast({ title: "Could not read the resume", description: "Check your connection and try again.", variant: "error" });
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  };
+
+  const pickResume = () => fileInput.current?.click();
 
   const onInputKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -465,13 +525,18 @@ export function AssistantPanel({
 
   if (!open) return null;
 
+  const askingField = findField(definition, asking);
   const status = voice.live
     ? voice.listening
-      ? "Listening"
+      ? askingField
+        ? `Listening for ${askingField.label.toLowerCase()}`
+        : "Listening"
       : "Opening the mic"
     : pending
       ? "Thinking"
-      : "Say it or type it. I fill the quick answers.";
+      : askingField
+        ? `Asking: ${askingField.label}`
+        : "One question at a time";
 
   return (
     <div
@@ -562,6 +627,9 @@ export function AssistantPanel({
                 {entry.action?.type === "highlight" && (
                   <ShowFieldLink fieldKey={entry.action.fieldKey} definition={definition} onShow={highlight} />
                 )}
+                {entry.topics && entry.topics.length > 0 && (
+                  <TopicsCard topics={entry.topics} definition={definition} onShow={highlight} />
+                )}
               </div>
             </div>
           ),
@@ -574,12 +642,14 @@ export function AssistantPanel({
         )}
         {userTurns === 0 && !pending && (
           <div className="flex flex-wrap gap-1.5 pl-[30px] pt-1">
+            <SuggestionChip icon={<Paperclip className="size-3.5" />} onClick={pickResume}>
+              Upload resume
+            </SuggestionChip>
             {voice.supported && !voice.live && (
               <SuggestionChip icon={<AudioLines className="size-3.5" />} onClick={voice.startLive}>
                 Talk it through
               </SuggestionChip>
             )}
-            <SuggestionChip onClick={() => void send("What is still empty?")}>What is left?</SuggestionChip>
             <SuggestionChip onClick={explainFocused}>Explain this question</SuggestionChip>
           </div>
         )}
@@ -597,7 +667,13 @@ export function AssistantPanel({
           value={input}
           rows={1}
           placeholder={
-            voice.live ? "Listening. Pause and it sends." : voice.listening ? "Listening" : "Tell me about yourself or ask about a field"
+            voice.live
+              ? "Listening. Pause and it sends."
+              : voice.listening
+                ? "Listening"
+                : askingField
+                  ? `${askingField.label}, or ask me something`
+                  : "Tell me about yourself or ask about a field"
           }
           aria-label="Message"
           onChange={(event) => setInput(event.target.value)}
@@ -607,6 +683,27 @@ export function AssistantPanel({
             "max-h-24 min-h-7 flex-1 resize-none px-2 py-1 leading-5 field-sizing-content",
             voice.live && "border-accent/50",
           )}
+        />
+        <input
+          ref={fileInput}
+          type="file"
+          accept={RESUME_ACCEPT}
+          className="hidden"
+          aria-hidden
+          tabIndex={-1}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void uploadResume(file);
+          }}
+        />
+        <Button
+          variant="ghost"
+          aria-label="Upload resume"
+          title="Upload your resume (PDF or text). I fill what it has and suggest essay topics."
+          onClick={pickResume}
+          disabled={pending}
+          icon={<Paperclip />}
         />
         {voice.supported && !voice.live && (
           <Button
@@ -793,6 +890,53 @@ function FillCard({ entry, definition, onUndo, onShow }: FillCardProps) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+interface TopicsCardProps {
+  topics: EssayTopic[];
+  definition: FormDefinition;
+  onShow: (key: string) => void;
+}
+
+/** Essay ideas pulled from the resume, grouped by question. Pointers only; the writing stays the applicant's. */
+function TopicsCard({ topics, definition, onShow }: TopicsCardProps) {
+  const groups = new Map<string, EssayTopic[]>();
+  for (const topic of topics) groups.set(topic.fieldKey, [...(groups.get(topic.fieldKey) ?? []), topic]);
+  return (
+    <div className="flex w-full flex-col overflow-hidden rounded-control border border-border bg-bg">
+      <div className="flex h-8 items-center gap-1.5 border-b border-border px-2.5 text-xs">
+        <Lightbulb className="size-3.5 text-accent" />
+        <span className="font-medium text-fg">Essay ideas from your resume</span>
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border-strong px-1.5 text-[10px] uppercase tracking-wide text-muted">
+          <PenLine className="size-2.5" />
+          Yours to write
+        </span>
+      </div>
+      {[...groups.entries()].map(([fieldKey, ideas]) => {
+        const field = findField(definition, fieldKey);
+        if (!field) return null;
+        return (
+          <div key={fieldKey} className="flex flex-col gap-1 border-b border-border px-2.5 py-2 last:border-b-0">
+            <button
+              type="button"
+              onClick={() => onShow(field.key)}
+              className="self-start text-left text-xs text-muted underline-offset-2 hover:text-fg hover:underline"
+            >
+              {field.label}
+            </button>
+            <ul className="flex flex-col gap-1">
+              {ideas.map((idea, index) => (
+                <li key={index} className="text-sm">
+                  <span className="text-fg">{idea.title}</span>
+                  {idea.angle && <span className="text-muted"> {idea.angle}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
