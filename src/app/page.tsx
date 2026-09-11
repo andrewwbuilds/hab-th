@@ -10,6 +10,7 @@ import { Faq } from "@/components/landing/Faq";
 import { Features } from "@/components/landing/Features";
 import { HalftoneSkyline } from "@/components/landing/HalftoneSkyline";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LandingNav } from "@/components/landing/LandingNav";
 import { GUIDES } from "@/lib/pet/guides";
 import { PixelPortrait } from "@/components/pet/PixelPortrait";
 import "./landing.css";
@@ -45,28 +46,7 @@ export default async function LandingPage() {
 
   return (
     <main className={`encore-landing ${aleo.variable}`}>
-      <header className="encore-header">
-        <div className="encore-nav">
-          <Link href="/" aria-label="Encore home">
-            <Wordmark size="lg" />
-          </Link>
-          <nav aria-label="Main navigation">
-            <div className="encore-nav-links">
-              <a href="#how-it-works">How it works</a>
-              <a href="#your-guides">Guides</a>
-              <a href="#faq">FAQ</a>
-            </div>
-            <div className="encore-nav-actions">
-              <Link href="/sign-in" className="encore-button encore-button-small encore-button-outline">
-                Sign in
-              </Link>
-              <Link href="/sign-up" className="encore-button encore-button-small">
-                Apply
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
+      <LandingNav />
 
       <section className="encore-hero" aria-labelledby="hero-heading">
         <div className="encore-copy">
