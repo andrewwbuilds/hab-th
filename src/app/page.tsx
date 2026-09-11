@@ -275,8 +275,11 @@ export default async function LandingPage() {
             <Link href="/sign-up">Create an account</Link>
           </div>
         </nav>
+        <p className="encore-footer-giant encore-serif" aria-label="Hackathons at Berkeley">
+          Hackathons <span>@</span> Berkeley
+        </p>
         <p className="encore-footer-base">
-          <span>Hackathon at Berkeley · Fall 2026</span>
+          <span>Fall 2026 · Encore</span>
           <span>Built for applicants, reviewed by people</span>
         </p>
       </footer>
