@@ -31,9 +31,9 @@ export function AppShell({
     <ToastProvider>
       <div className="flex h-dvh w-full flex-col overflow-hidden bg-bg text-fg md:flex-row">
         <Sidebar workspace={workspace} nav={nav} user={user} footer={sidebarFooter} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Topbar breadcrumbs={breadcrumbs} actions={actions} />
-          <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+          <main className="relative min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
       <CommandPalette commands={commands} nav={nav} />

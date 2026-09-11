@@ -11,7 +11,7 @@ export function Checkbox({ label, hint, className, ...rest }: CheckboxProps) {
   return (
     <label
       className={cn(
-        "group inline-flex items-start gap-2 cursor-pointer select-none",
+        "group relative inline-flex items-start gap-2 cursor-pointer select-none",
         rest.disabled && "opacity-50 cursor-not-allowed",
         className,
       )}
