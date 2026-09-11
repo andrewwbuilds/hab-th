@@ -19,7 +19,7 @@ function RoadieMini({ pet }: { pet: PetSpec | null }) {
         <span aria-hidden className="size-7 shrink-0 rounded-full border border-dashed border-border-strong" />
         <span className="flex min-w-0 flex-col leading-none">
           <span className="truncate text-sm font-medium text-fg">No Roadie yet</span>
-          <span className="text-xs text-dim">Choose yours to apply</span>
+          <span className="text-xs text-dim">Optional. Gives your Roadie a voice</span>
         </span>
       </Link>
     );

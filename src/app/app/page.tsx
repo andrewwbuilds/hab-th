@@ -115,10 +115,11 @@ export default async function ApplicantHomePage() {
         <div className="flex flex-col gap-6">
           <Card className="flex flex-col items-start gap-3">
             <div className="flex flex-col gap-1">
-              <h2 className="text-md font-medium text-fg">Choose your guide first</h2>
+              <h2 className="text-md font-medium text-fg">Choose your guide</h2>
               <p className="max-w-lg text-base text-muted">
-                Choose Eddy, Gary, or Eric, draw your own character, or take a slightly pixelated selfie.
-                Your guide helps you through each question and keeps you company as you apply.
+                Optional. Pick Eddy, Gary, or Eric, draw your own character, or take a slightly pixelated selfie.
+                Your guide talks you through each question in its own voice. You can start a track now and
+                choose one whenever you like.
               </p>
             </div>
             <Button href="/app/roadie" variant="primary" size="md" icon={<ArrowRight />}>
@@ -127,7 +128,7 @@ export default async function ApplicantHomePage() {
           </Card>
           <section className="flex flex-col gap-2">
             <h2 className="px-1 text-sm font-medium text-muted">Tracks</h2>
-            <TrackList applications={applications} disabled />
+            <TrackList applications={applications} disabled={false} />
           </section>
         </div>
       )}

@@ -9,7 +9,7 @@ import type { PetSpec } from "@/lib/types";
 import { PixelPortrait } from "./PixelPortrait";
 
 type Guide = NonNullable<PetSpec["traits"]["guide"]>;
-export function GuidePicker({ pet }: { pet: PetSpec | null }) {
+export function GuidePicker({ pet, returnTo = null }: { pet: PetSpec | null; returnTo?: string | null }) {
   const router = useRouter();
   const [kind, setKind] = useState<Guide["kind"]>(pet?.traits.guide?.kind ?? "eddy");
   const [name, setName] = useState(pet?.name ?? "Eddy");
@@ -102,7 +102,9 @@ export function GuidePicker({ pet }: { pet: PetSpec | null }) {
         if (!image) return;
         const result = await saveGuide(name, { kind, image });
         if (!result.ok) { setError(result.error); return; }
-        setSaved(true); router.refresh();
+        setSaved(true);
+        if (returnTo) router.push(returnTo);
+        else router.refresh();
       } catch { setError("Could not save your guide. Please try again."); }
     });
   }
@@ -125,6 +127,6 @@ export function GuidePicker({ pet }: { pet: PetSpec | null }) {
       <Button variant="primary" size="md" onClick={save} loading={pending} disabled={!name.trim() || (kind === "drawing" && !hasDrawing) || (kind === "photo" && !photo)}>Save my guide</Button>
     </fieldset>
     {error && <p role="alert" className="text-status-rejected">{error}</p>}
-    {saved && <p role="status">{name} is ready! <a className="underline" href="/app">Continue to your applications →</a></p>}
+    {saved && <p role="status">{name} is ready! <a className="underline" href={returnTo ?? "/app"}>{returnTo ? "Back to your application →" : "Continue to your applications →"}</a></p>}
   </section>;
 }

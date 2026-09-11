@@ -8,6 +8,7 @@ import { applyXp, derivePet, XP_EVENTS, type XpEventKey } from "@/lib/pet/engine
 import type { ActionResult, MusicProfile, PetSpec } from "@/lib/types";
 import { guideSchema, musicProfileSchema, petFromRow, petToRow } from "@/lib/data/pet-row";
 import { FORM_DEFINITIONS } from "@/lib/forms/tracks";
+import { completion, parseAnswers } from "@/lib/forms/schema";
 import { isTrack } from "@/lib/types";
 import { getCurrentUser } from "@/lib/data/profiles";
 
@@ -40,6 +41,26 @@ function qualifierIsValid(eventKey: XpEventKey, qualifier: string | undefined): 
 
 function revalidateRoadie() {
   revalidatePath("/app", "layout");
+}
+
+/**
+ * Applications can exist before the pet does (sign-up creates the first draft), and awardXp drops events
+ * while there is no pet row. Fold those missed events in when the first pet row is inserted.
+ */
+async function withBackfilledXp(spec: PetSpec, userId: string): Promise<PetSpec> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("applications").select("track, status, answers").eq("user_id", userId);
+  const applications = data ?? [];
+  if (applications.length === 0) return spec;
+
+  let next = applyXp(spec, "firstDraft");
+  for (const application of applications) {
+    if (application.status !== "draft") next = applyXp(next, "submitted", application.track);
+    for (const section of completion(application.track, parseAnswers(application.answers)).sectionsDone) {
+      next = applyXp(next, "sectionComplete", `${application.track}/${section}`);
+    }
+  }
+  return next;
 }
 
 export async function getMyPet(): Promise<PetSpec | null> {
@@ -76,7 +97,7 @@ export async function createPet(profile: MusicProfile, name: string): Promise<Ac
         xp: existing.xp,
         traits: { ...fresh.traits, xpEvents: petFromRow(existing).traits.xpEvents ?? [] },
       }
-    : applyXp(fresh, "petCreated");
+    : await withBackfilledXp(applyXp(fresh, "petCreated"), user.id);
 
   const row = petToRow(spec);
   const { error } = existing
@@ -148,7 +169,15 @@ export async function saveGuide(name: string, guide: NonNullable<PetSpec["traits
   const supabase = await createClient();
   const { data: existing, error: readError } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
   if (readError) return { ok: false, error: "Could not load your guide. Try again." };
-  const base = existing ? petFromRow(existing) : applyXp(derivePet({ genres: ["indie"], energy: 3, mood: 4, era: "20s", hoursPerDay: "1to3", discovery: "friends", topArtist: "Your next favorite", anthem: "" }), "petCreated");
+  const base = existing
+    ? petFromRow(existing)
+    : await withBackfilledXp(
+        applyXp(
+          derivePet({ genres: ["indie"], energy: 3, mood: 4, era: "20s", hoursPerDay: "1to3", discovery: "friends", topArtist: "Your next favorite", anthem: "" }),
+          "petCreated",
+        ),
+        user.id,
+      );
   const spec = { ...base, name: parsedName.data, traits: { ...base.traits, guide: parsed.data } };
   const row = petToRow(spec);
   const { error } = existing
